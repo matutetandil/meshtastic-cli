@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `listen` command to stream and decode incoming mesh packets in real time
+- Packet decoding for text messages, position, telemetry (device, environment, power), node info, and routing (ACK/NAK)
+- Colored, timestamped output with sender name resolution from node database
+- `NodeDb::node_name()` helper for quick node name lookup by ID
+
 ## [0.2.0] - 2026-02-20
 
 ### Added

@@ -70,6 +70,13 @@ impl NodeDb {
         &self.nodes
     }
 
+    pub fn node_name(&self, node_num: u32) -> Option<&str> {
+        self.nodes
+            .get(&node_num)
+            .and_then(|n| n.user.as_ref())
+            .map(|u| u.long_name.as_str())
+    }
+
     pub fn find_by_name(&self, name: &str) -> Vec<(u32, &protobufs::NodeInfo)> {
         let query = name.to_lowercase();
         self.nodes

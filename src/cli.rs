@@ -49,4 +49,7 @@ pub enum Commands {
         #[arg(long, default_value_t = 0)]
         channel: u32,
     },
+
+    /// Stream incoming packets from the mesh network in real time
+    Listen,
 }
