@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `info` command to display local node details: ID, name, hardware model, role, firmware version, capabilities (WiFi, Bluetooth, Ethernet, PKC), device metrics, GPS position, and active channels with encryption type
 - Channel and DeviceMetadata collection during the configure handshake
 - `NodeDb::local_node()`, `NodeDb::channels()`, `NodeDb::metadata()`, `NodeDb::my_node_info()` accessors
+- `ping` command to measure round-trip time to a specific node via ACK correlation
+- Supports `--dest` (hex ID) and `--to` (name lookup) for ping destination
+- Configurable `--timeout` (default 30s) for ACK wait
+- Shared `DestinationSpec` enum and `resolve_destination()` / `parse_dest_spec()` helpers across send and ping commands
 
 ## [0.2.0] - 2026-02-20
 

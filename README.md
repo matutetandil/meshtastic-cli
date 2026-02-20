@@ -26,6 +26,7 @@
 - `send` command: send text messages to the mesh (broadcast, by node ID, by node name, or on a specific channel)
 - `listen` command: stream and decode incoming packets in real time (text, position, telemetry, routing, node info)
 - `info` command: display local node details, firmware, capabilities, channels, device metrics, and position
+- `ping` command: ping a specific node by ID or name, measure round-trip time, with configurable timeout
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -106,6 +107,7 @@ Commands:
   send     Send a text message to the mesh network
   listen   Stream incoming packets in real time
   info     Show local node and device information
+  ping     Ping a node and measure round-trip time
 ```
 
 ### Connection examples
@@ -153,7 +155,7 @@ Sends a text message to the mesh network. By default the message is broadcast to
 meshtastic-cli send "hello mesh"
 
 # Send to a specific node by hex ID
-meshtastic-cli send "hello node" --dest !abcd1234
+meshtastic-cli send "hello node" --dest 04e1c43b
 
 # Send to a node by name (searches known nodes, case-insensitive)
 meshtastic-cli send "hello!" --to Pedro
@@ -162,13 +164,15 @@ meshtastic-cli send "hello!" --to Pedro
 meshtastic-cli send "hello channel" --channel 1
 
 # Combine destination and channel
-meshtastic-cli send "direct message" --dest !abcd1234 --channel 2
+meshtastic-cli send "direct message" --dest 04e1c43b --channel 2
 ```
+
+> **Shell note:** The `!` prefix is optional. If you include it, quote or escape it to prevent shell history expansion: `--dest '!04e1c43b'` or `--dest \!04e1c43b`.
 
 | Option      | Description                                            |
 |-------------|--------------------------------------------------------|
 | `<MESSAGE>` | The text message to send (required, positional)        |
-| `--dest`    | Destination node ID in hex (e.g. `!abcd1234`). Cannot be combined with `--to`. |
+| `--dest`    | Destination node ID in hex (e.g. `04e1c43b`). The `!` prefix is optional. Cannot be combined with `--to`. |
 | `--to`      | Destination node name (e.g. `Pedro`). Searches known nodes by name (case-insensitive). If multiple nodes match, shows the list and asks you to use `--dest` instead. Cannot be combined with `--dest`. |
 | `--channel` | Channel index 0-7 (default: 0)                        |
 
@@ -240,6 +244,41 @@ Channels
   Nodes in mesh:   8
 ```
 
+### `ping`
+
+Sends a ping to a specific node and measures the round-trip time by waiting for an ACK.
+
+```bash
+# Ping by node ID
+meshtastic-cli ping --dest 04e1c43b
+
+# Ping by name
+meshtastic-cli ping --to Pedro
+
+# Custom timeout (default: 30s)
+meshtastic-cli ping --dest 04e1c43b --timeout 60
+```
+
+| Option      | Description                                            |
+|-------------|--------------------------------------------------------|
+| `--dest`    | Destination node ID in hex, `!` prefix optional (required unless `--to` is used) |
+| `--to`      | Destination node name (required unless `--dest` is used) |
+| `--timeout` | Seconds to wait for ACK (default: 30)                  |
+
+Example output:
+
+```
+→ Pinging !04e1c43b (Pedro) (packet id: a1b2c3d4)...
+✓ ACK from !04e1c43b (Pedro) in 2.3s
+```
+
+If the node doesn't respond:
+
+```
+→ Pinging !04e1c43b (Pedro) (packet id: a1b2c3d4)...
+✗ Timeout after 30s — no ACK from !04e1c43b (Pedro)
+```
+
 ---
 
 ## Architecture
@@ -260,7 +299,7 @@ main.rs  (argument parsing + dispatch only)
               send.rs     (implements Command for sending messages)
               listen.rs   (implements Command for packet streaming)
               info.rs     (implements Command for device info display)
-              ping.rs     (planned)
+              ping.rs     (implements Command for node ping with ACK)
 ```
 
 ### Key Patterns
@@ -342,7 +381,8 @@ meshtastic-cli/
         ├── nodes.rs         # `nodes` command implementation
         ├── send.rs          # `send` command implementation
         ├── listen.rs        # `listen` command implementation
-        └── info.rs          # `info` command implementation
+        ├── info.rs          # `info` command implementation
+        └── ping.rs          # `ping` command implementation
 ```
 
 ---
@@ -357,7 +397,7 @@ The following commands are planned in priority order:
 | `send <msg>`    | Send a text message to the mesh                       | v0.2.0     |
 | `listen`        | Stream all incoming packets to stdout in real time    | Done       |
 | `info`          | Show local node info: ID, firmware version, channels  | Done       |
-| `ping <node-id>`| Send a ping to a specific node and wait for ACK       | Planned    |
+| `ping <node-id>`| Send a ping to a specific node and wait for ACK       | Done       |
 
 ---
 
@@ -386,4 +426,4 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 **Stability**: Experimental — API and CLI interface may change
 
 **Next Milestones**:
-- `ping` command with ACK waiting
+- Additional commands as needed for feature parity with the official Python CLI

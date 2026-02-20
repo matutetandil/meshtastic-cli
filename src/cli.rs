@@ -37,7 +37,7 @@ pub enum Commands {
         /// The message text to send
         message: String,
 
-        /// Destination node ID in hex (e.g. !abcd1234). Omit to broadcast.
+        /// Destination node ID in hex (e.g. 04e1c43b or '!04e1c43b'). Omit to broadcast.
         #[arg(long, conflicts_with = "to")]
         dest: Option<String>,
 
@@ -55,4 +55,19 @@ pub enum Commands {
 
     /// Show local node and device information
     Info,
+
+    /// Ping a node and wait for ACK to measure round-trip time
+    Ping {
+        /// Destination node ID in hex (e.g. 04e1c43b or '!04e1c43b')
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Destination node name (e.g. Pedro). Searches known nodes by name.
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+
+        /// Timeout in seconds to wait for ACK
+        #[arg(long, default_value_t = 30)]
+        timeout: u64,
+    },
 }
