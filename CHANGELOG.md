@@ -63,6 +63,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `channel qr --output` flag to export QR code as PNG or SVG image file
 - `qrcode` dependency for QR code generation (terminal, PNG, SVG)
 - `image` dependency for PNG image rendering
+- `position remove` command to clear a fixed GPS position, allowing the device to fall back to GPS hardware if available
+- `device get-ringtone` command to display the stored ringtone on the device, with configurable `--timeout`
+- `device reboot-ota` command to reboot into OTA firmware update mode (ESP32 devices), supporting remote nodes via `--dest`/`--to`
+- `device enter-dfu` command to enter DFU (Device Firmware Update) mode on NRF52 devices
+- `device factory-reset-device` command for a full factory reset including BLE bonds (distinct from `factory-reset`, which preserves BLE bonds)
+- `send --ack` flag to wait for delivery confirmation (ACK) before returning, with configurable `--timeout` (default 30s)
+- `send --private` flag to send messages via `PRIVATE_APP` port (port 256) instead of the standard text message port
+- `channel qr --all` flag to generate individual QR codes for each active channel
+- `config begin-edit` command to signal the device to begin a batch of configuration changes
+- `config commit-edit` command to signal the device to commit and apply a batch of configuration changes
+- `config set-modem-preset` command to set the LoRa modem preset directly (LongFast, LongSlow, VeryLongSlow, MediumSlow, MediumFast, ShortSlow, ShortFast, LongModerate, ShortTurbo)
+- `config ch-add-url` command to add channels from a `meshtastic://` URL without replacing existing channels
+- `reply` command to auto-reply to incoming text messages with signal information (SNR, RSSI, hops)
+- `gpio write` command to set GPIO pins on a remote node via `RemoteHardwareApp`
+- `gpio read` command to read GPIO pin states from a remote node with configurable timeout
+- `gpio watch` command to monitor GPIO pin changes on a remote node in real time
+- `support` command to display diagnostic information including CLI version, firmware, hardware, region, channels, and known nodes
+- `nodes --fields` flag to select which columns to display, with support for extended fields (`hw_model`, `role`, `position`)
+- `--ble <name|mac>` global connection option for BLE connectivity to Meshtastic devices (requires `--features ble` build flag)
+- `--ble-scan` global flag to scan for nearby BLE Meshtastic devices
+- `--no-nodes` global flag to skip node collection during connection for faster startup on commands that do not require the node database
+- `position set --flags` option to set position broadcast field flags when configuring a fixed position
+- `ble` feature flag in `Cargo.toml` with conditional compilation for BLE support via `meshtastic/bluetooth-le`
 
 ## [0.2.0] - 2026-02-20
 

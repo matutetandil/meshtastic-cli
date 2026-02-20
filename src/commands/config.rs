@@ -296,6 +296,175 @@ impl Command for SetUrlCommand {
     }
 }
 
+// ── BeginEditCommand ──────────────────────────────────────────────
+
+pub struct BeginEditCommand;
+
+#[async_trait]
+impl Command for BeginEditCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let my_id = ctx.node_db.my_node_num();
+
+        println!("{} Starting batch edit session...", "->".cyan());
+
+        super::device::send_admin_message(
+            &mut ctx,
+            my_id,
+            protobufs::admin_message::PayloadVariant::BeginEditSettings(true),
+        )
+        .await?;
+
+        println!(
+            "{} Batch edit session started. Changes will be queued until 'config commit-edit'.",
+            "ok".green()
+        );
+
+        Ok(())
+    }
+}
+
+// ── CommitEditCommand ────────────────────────────────────────────
+
+pub struct CommitEditCommand;
+
+#[async_trait]
+impl Command for CommitEditCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let my_id = ctx.node_db.my_node_num();
+
+        println!("{} Committing queued configuration changes...", "->".cyan());
+
+        super::device::send_admin_message(
+            &mut ctx,
+            my_id,
+            protobufs::admin_message::PayloadVariant::CommitEditSettings(true),
+        )
+        .await?;
+
+        println!("{} Configuration changes committed.", "ok".green());
+        println!(
+            "{} Device will reboot to apply changes.",
+            "!".yellow().bold()
+        );
+
+        Ok(())
+    }
+}
+
+// ── SetModemPresetCommand ────────────────────────────────────────
+
+pub struct SetModemPresetCommand {
+    pub preset: i32,
+}
+
+#[async_trait]
+impl Command for SetModemPresetCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let mut lora = ctx.node_db.local_config().lora.clone().unwrap_or_default();
+        lora.modem_preset = self.preset;
+        lora.use_preset = true;
+
+        let preset_name = protobufs::config::lo_ra_config::ModemPreset::try_from(self.preset)
+            .map(|p| format!("{:?}", p))
+            .unwrap_or_else(|_| self.preset.to_string());
+
+        println!(
+            "{} Setting modem preset to {}...",
+            "->".cyan(),
+            preset_name.bold()
+        );
+
+        let config_packet = protobufs::Config {
+            payload_variant: Some(protobufs::config::PayloadVariant::Lora(lora)),
+        };
+
+        ctx.api
+            .update_config(&mut ctx.router, config_packet)
+            .await?;
+
+        println!("{} Modem preset updated.", "ok".green());
+        println!(
+            "{} Device will reboot to apply changes.",
+            "!".yellow().bold()
+        );
+
+        Ok(())
+    }
+}
+
+// ── ChAddUrlCommand ──────────────────────────────────────────────
+
+pub struct ChAddUrlCommand {
+    pub url: String,
+}
+
+#[async_trait]
+impl Command for ChAddUrlCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let encoded = extract_url_payload(&self.url)?;
+        let bytes = base64_decode(&encoded)?;
+        let channel_set = protobufs::ChannelSet::decode(bytes.as_slice())
+            .map_err(|e| anyhow::anyhow!("Failed to decode channel set from URL: {}", e))?;
+
+        println!(
+            "{} Adding channels from URL (without replacing existing)...",
+            "->".cyan()
+        );
+
+        let channels = ctx.node_db.channels();
+        let mut added = 0u32;
+
+        for settings in &channel_set.settings {
+            let next_index = match super::channel::find_next_free_index(channels) {
+                Ok(idx) => idx,
+                Err(_) => {
+                    println!(
+                        "  {} No free channel slots remaining, skipping rest.",
+                        "!".yellow()
+                    );
+                    break;
+                }
+            };
+
+            let label = if settings.name.is_empty() {
+                "Default".to_string()
+            } else {
+                settings.name.clone()
+            };
+
+            let channel = protobufs::Channel {
+                index: next_index,
+                role: protobufs::channel::Role::Secondary as i32,
+                settings: Some(protobufs::ChannelSettings {
+                    psk: settings.psk.clone(),
+                    name: settings.name.clone(),
+                    id: settings.id,
+                    uplink_enabled: settings.uplink_enabled,
+                    downlink_enabled: settings.downlink_enabled,
+                    module_settings: settings.module_settings,
+                    ..Default::default()
+                }),
+            };
+
+            ctx.api
+                .update_channel_config(&mut ctx.router, channel)
+                .await?;
+            added += 1;
+            println!(
+                "  {} Channel {}: {} (index {})",
+                "ok".green(),
+                added,
+                label,
+                next_index
+            );
+        }
+
+        println!("{} Added {} channel(s) from URL.", "ok".green(), added);
+
+        Ok(())
+    }
+}
+
 fn extract_url_payload(url: &str) -> anyhow::Result<String> {
     // Support formats:
     //   https://meshtastic.org/e/#PAYLOAD

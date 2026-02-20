@@ -5,6 +5,10 @@ edition = "2021"
 description = "A CLI tool for interacting with Meshtastic mesh networking devices"
 license = "MIT"
 
+[features]
+default = []
+ble = ["meshtastic/bluetooth-le"]
+
 [dependencies]
 meshtastic = "0.1.8"
 tokio = { version = "1", features = ["full"] }

@@ -1,10 +1,10 @@
 # meshtastic-cli
 
-> A Rust CLI tool for interacting with Meshtastic mesh networking devices over TCP or serial connections.
+> A Rust CLI tool for interacting with Meshtastic mesh networking devices over TCP, serial, or BLE connections.
 
 ## Purpose & Context
 
-**What it does**: `meshtastic-cli` provides a command-line interface to Meshtastic devices, allowing you to list nodes, send messages, monitor incoming packets, query device info, and ping specific nodes — all from a terminal.
+**What it does**: `meshtastic-cli` provides a command-line interface to Meshtastic devices, allowing you to list nodes, send messages, monitor incoming packets, query device info, ping specific nodes, manage channels, control GPIO pins, and more — all from a terminal.
 
 **Why it exists**: The Meshtastic ecosystem lacks a robust, composable CLI tool built in Rust. This project aims to fill that gap as an open-source contribution, leveraging the official `meshtastic` Rust crate to interact with real hardware and local simulators alike.
 
@@ -15,6 +15,7 @@
 - SOLID principles throughout: single responsibility per module, open/closed for command extension, dependency inversion via connection abstraction.
 - Thin `main.rs`: only parses CLI arguments and dispatches to the appropriate command — no business logic lives there.
 - Async-first: all I/O uses Tokio, matching the async model of the underlying `meshtastic` crate.
+- Optional BLE support: compiled in via `--features ble` to avoid requiring Bluetooth dependencies in environments that do not need them.
 
 ---
 
@@ -22,38 +23,51 @@
 
 - TCP connectivity to local simulators or remote devices
 - Serial connectivity to physical Meshtastic hardware
-- `nodes` command: list all mesh nodes with ID, name, battery level, SNR, hop count, and last-heard timestamp
-- `send` command: send text messages to the mesh (broadcast, by node ID, by node name, or on a specific channel)
+- BLE connectivity to nearby devices (requires `--features ble` build)
+- `--no-nodes` flag: skip node collection on startup for faster command execution
+- `nodes` command: list all mesh nodes with ID, name, battery level, SNR, hop count, and last-heard timestamp; supports `--fields` column filtering
+- `send` command: send text messages to the mesh (broadcast, by node ID, by node name, or on a specific channel); supports `--ack` for delivery confirmation and `--private` for private-port messaging
 - `listen` command: stream and decode incoming packets in real time (text, position, telemetry, routing, node info)
 - `info` command: display local node details, firmware, capabilities, channels, device metrics, and position
 - `ping` command: ping a specific node by ID or name, measure round-trip time, with configurable timeout
 - `config get` command: display all or individual device/module configuration sections
 - `config set` command: modify any configuration field with automatic device reboot
+- `config begin-edit` / `config commit-edit` commands: batch config change signaling
+- `config set-modem-preset` command: set modem preset directly by name
+- `config ch-add-url` command: add channels from a meshtastic:// URL without replacing existing channels
 - `traceroute` command: trace route to a node showing each hop with SNR values
-- `channel` command: add, delete, list, set properties, and generate QR codes for channels
+- `channel` command: add, delete, list, set properties, and generate QR codes for channels; supports `--all` for per-channel QR output
 - `config export` command: export full device configuration (config, module config, channels) to YAML
 - `config import` command: import and apply configuration from a YAML file
 - `device reboot` command: reboot local or remote device with configurable delay
+- `device reboot-ota` command: reboot into OTA firmware update mode (ESP32 devices)
+- `device enter-dfu` command: enter DFU mode (NRF52 devices)
 - `device shutdown` command: shut down local or remote device with configurable delay
 - `device set-time` command: set the device clock from a Unix timestamp or system time
 - `device set-canned-message` command: configure canned message slots separated by `|`
 - `device get-canned-message` command: display currently configured canned messages
 - `device set-ringtone` command: set the notification ringtone in RTTTL format
+- `device get-ringtone` command: display the currently stored ringtone
+- `device factory-reset` command: restore factory defaults (preserves BLE bonds)
+- `device factory-reset-device` command: full factory reset including BLE bond wipe
+- `device reset-nodedb` command: clear the node database
 - `node set-owner` command: set device long name and short name
 - `node set-favorite` command: mark a node as favorite
 - `node remove-favorite` command: remove a node from favorites
 - `node set-ignored` command: mark a node as ignored
 - `node remove-ignored` command: remove a node from the ignored list
-- `device factory-reset` command: restore factory defaults
-- `device reset-nodedb` command: clear the node database
 - `node remove` command: remove a specific node from the local NodeDB
 - `position get` command: display current GPS position
-- `position set` command: set a fixed GPS position (latitude, longitude, altitude)
+- `position set` command: set a fixed GPS position (latitude, longitude, altitude, optional broadcast flags)
+- `position remove` command: clear the fixed GPS position and return to GPS-based positioning
 - `request telemetry` command: request telemetry from a remote node
 - `request position` command: request position from a remote node
 - `request metadata` command: request device metadata from a remote node
 - `config set-ham` command: configure licensed Ham radio mode with callsign
-- `config set-url` command: apply channels and LoRa config from a meshtastic:// URL
+- `config set-url` command: apply channels and LoRa config from a meshtastic:// URL (replaces existing channels)
+- `reply` command: auto-reply mode — listens for incoming text messages and responds with signal info (SNR, RSSI, hops)
+- `support` command: display diagnostic info (CLI version, firmware, hardware, channels, known nodes, region, modem preset)
+- `gpio write/read/watch` commands: remote GPIO pin operations on mesh nodes
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -63,6 +77,10 @@
 
 - **Rust toolchain** (edition 2021, stable): install via [rustup.rs](https://rustup.rs)
 - **Docker** (optional): required only for the local simulator
+- **Platform BLE libraries** (optional): required only when building with `--features ble`
+  - macOS: Core Bluetooth (built-in)
+  - Linux: BlueZ (`libbluetooth-dev`)
+  - Windows: WinRT Bluetooth (built-in)
 
 ---
 
@@ -78,10 +96,21 @@ cargo build --release
 
 The compiled binary will be at `target/release/meshtastic-cli`.
 
+### Build with BLE support
+
+```bash
+cargo build --release --features ble
+```
+
+BLE support is gated behind a feature flag to avoid pulling in Bluetooth dependencies when they are not needed (e.g., on CI servers or headless environments).
+
 ### Install directly with Cargo
 
 ```bash
 cargo install --path .
+
+# With BLE support
+cargo install --path . --features ble
 ```
 
 This places the binary in `~/.cargo/bin/meshtastic-cli`, which should already be in your `PATH` if you installed Rust via rustup.
@@ -123,25 +152,31 @@ meshtastic-cli --serial /dev/ttyUSB0 nodes
 meshtastic-cli [OPTIONS] <COMMAND>
 
 Options:
-  --host <HOST>      TCP host to connect to [default: 127.0.0.1]
-  --port <PORT>      TCP port to connect to [default: 4403]
-  --serial <PATH>    Serial device path (e.g. /dev/ttyUSB0). Overrides TCP.
-  -h, --help         Print help
-  -V, --version      Print version
+  --host <HOST>        TCP host to connect to [default: 127.0.0.1]
+  --port <PORT>        TCP port to connect to [default: 4403]
+  --serial <PATH>      Serial device path (e.g. /dev/ttyUSB0). Overrides TCP.
+  --ble <NAME|MAC>     BLE device name or MAC address (requires --features ble build)
+  --ble-scan           Scan for nearby BLE Meshtastic devices and list them
+  --no-nodes           Skip node collection during connection (faster startup)
+  -h, --help           Print help
+  -V, --version        Print version
 
 Commands:
-  nodes    List all nodes visible on the mesh
-  send     Send a text message to the mesh network
-  listen   Stream incoming packets in real time
-  info     Show local node and device information
-  config      Get, set, export, import, set-ham, set-url
+  nodes       List all nodes visible on the mesh
+  send        Send a text message to the mesh network
+  listen      Stream incoming packets in real time
+  info        Show local node and device information
+  reply       Auto-reply to incoming messages with signal info
+  support     Display diagnostic info about the connected device and CLI
+  config      Get, set, export, import, set-ham, set-url, begin-edit, commit-edit, set-modem-preset, ch-add-url
   node        Node management (set-owner, remove, set-favorite, remove-favorite, set-ignored, remove-ignored)
-  device      Device management (reboot, shutdown, factory-reset, reset-nodedb, set-time, set-canned-message, get-canned-message, set-ringtone)
+  device      Device management (reboot, reboot-ota, enter-dfu, shutdown, factory-reset, factory-reset-device, reset-nodedb, set-time, set-canned-message, get-canned-message, set-ringtone, get-ringtone)
   channel     Manage channels (add, delete, set, list, qr)
-  position    GPS position (get, set)
+  position    GPS position (get, set, remove)
   request     Request data from remote nodes (telemetry, position, metadata)
   traceroute  Trace route to a node showing each hop
   ping        Ping a node and measure round-trip time
+  gpio        Remote GPIO operations (write, read, watch)
 ```
 
 ### Connection examples
@@ -155,6 +190,18 @@ meshtastic-cli --host 192.168.1.100 --port 4403 nodes
 
 # Serial — physical device
 meshtastic-cli --serial /dev/ttyUSB0 nodes
+
+# BLE — connect by device name (requires --features ble build)
+meshtastic-cli --ble "Meshtastic_abcd" nodes
+
+# BLE — connect by MAC address
+meshtastic-cli --ble "AA:BB:CC:DD:EE:FF" nodes
+
+# BLE — scan for nearby devices
+meshtastic-cli --ble-scan
+
+# Skip node collection for faster startup (useful for commands that don't need node info)
+meshtastic-cli --no-nodes send "hello mesh"
 ```
 
 ---
@@ -180,6 +227,30 @@ Output columns:
 | Hops        | Number of hops from the local node           |
 | Last Heard  | Timestamp of the most recent packet received |
 
+Use `--fields` to select which columns to display. Separate field names with commas.
+
+```bash
+# Show only ID, name, and SNR
+meshtastic-cli nodes --fields id,name,snr
+
+# Show extended fields including hardware model, role, and position
+meshtastic-cli nodes --fields id,name,hw_model,role,position
+```
+
+Available fields:
+
+| Field       | Description                                     | Default |
+|-------------|-------------------------------------------------|---------|
+| `id`        | Node identifier (hex)                           | Yes     |
+| `name`      | Node long name                                  | Yes     |
+| `battery`   | Battery level percentage                        | Yes     |
+| `snr`       | Signal-to-noise ratio                           | Yes     |
+| `hops`      | Number of hops from local node                  | Yes     |
+| `last_heard`| Timestamp of last received packet               | Yes     |
+| `hw_model`  | Hardware model name                             | No      |
+| `role`      | Device role (CLIENT, ROUTER, etc.)              | No      |
+| `position`  | Last known GPS coordinates                      | No      |
+
 ### `send`
 
 Sends a text message to the mesh network. By default the message is broadcast to all nodes.
@@ -199,6 +270,15 @@ meshtastic-cli send "hello channel" --channel 1
 
 # Combine destination and channel
 meshtastic-cli send "direct message" --dest 04e1c43b --channel 2
+
+# Wait for delivery confirmation (ACK) before returning
+meshtastic-cli send "confirmed message" --dest 04e1c43b --ack
+
+# Wait for ACK with custom timeout
+meshtastic-cli send "confirmed message" --to Pedro --ack --timeout 60
+
+# Send as a private message (PRIVATE_APP port instead of text port)
+meshtastic-cli send "private payload" --dest 04e1c43b --private
 ```
 
 > **Shell note:** The `!` prefix is optional. If you include it, quote or escape it to prevent shell history expansion: `--dest '!04e1c43b'` or `--dest \!04e1c43b`.
@@ -209,6 +289,9 @@ meshtastic-cli send "direct message" --dest 04e1c43b --channel 2
 | `--dest`    | Destination node ID in hex (e.g. `04e1c43b`). The `!` prefix is optional. Cannot be combined with `--to`. |
 | `--to`      | Destination node name (e.g. `Pedro`). Searches known nodes by name (case-insensitive). If multiple nodes match, shows the list and asks you to use `--dest` instead. Cannot be combined with `--dest`. |
 | `--channel` | Channel index 0-7 (default: 0)                        |
+| `--ack`     | Wait for delivery ACK before returning. Requires `--dest` or `--to` (cannot ACK a broadcast). |
+| `--timeout` | Seconds to wait for ACK when `--ack` is set (default: 30). |
+| `--private` | Send on PRIVATE_APP port (port 256) instead of the standard text message port. |
 
 ### `listen`
 
@@ -238,6 +321,52 @@ Example output:
 [15:30:05] !a1b2c3d4 (Maria) -> !04e1c43b      | Position: 40.41680, -3.70380, 650m, 8 sats
 [15:30:10] !04e1c43b (Pedro) -> broadcast       | Telemetry: battery 85%, 3.90V, ch_util 12.3%
 [15:30:15] !a1b2c3d4 (Maria) -> !04e1c43b      | Routing: ACK
+```
+
+### `reply`
+
+Auto-reply mode. Listens for incoming text messages and automatically replies to each sender with signal information (SNR, RSSI, hops). Useful for range testing and network debugging. Runs continuously until interrupted with Ctrl+C.
+
+```bash
+meshtastic-cli reply
+```
+
+Example output:
+
+```
+-> Reply mode active. Listening for messages. Press Ctrl+C to stop.
+
+[15:30:00] Message from Pedro (!04e1c43b): "hello"
+-> Replied: "Heard you! SNR: 8.5 dB, RSSI: -85 dBm, Hops: 2"
+```
+
+### `support`
+
+Displays a diagnostic summary of the connected device and CLI. Useful for troubleshooting and for sharing device context in bug reports.
+
+```bash
+meshtastic-cli support
+```
+
+Example output:
+
+```
+meshtastic-cli v0.2.0
+
+Device
+  Node ID:        !04e1c43b
+  Firmware:       2.5.6.abc1234
+  Hardware:       HELTEC_V3
+  Role:           CLIENT
+  Region:         EU868
+  Modem preset:   LongFast
+  Capabilities:   WiFi, Bluetooth, PKC
+
+Channels
+  [0] Default (Primary)
+  [1] Team (Secondary)
+
+Known nodes: 8
 ```
 
 ### `info`
@@ -359,6 +488,62 @@ Example output:
 ok Configuration updated.
 ```
 
+#### `config begin-edit`
+
+Signal the device to begin collecting a batch of configuration changes. Use this before a sequence of `config set` calls to apply them all in a single transaction rather than rebooting after each change.
+
+```bash
+meshtastic-cli config begin-edit
+meshtastic-cli config set lora.region Eu868
+meshtastic-cli config set lora.hop_limit 5
+meshtastic-cli config set device.role Router
+meshtastic-cli config commit-edit
+```
+
+#### `config commit-edit`
+
+Signal the device to commit and apply all configuration changes queued since the last `config begin-edit`. The device will reboot once to apply all pending changes.
+
+```bash
+meshtastic-cli config commit-edit
+```
+
+#### `config set-modem-preset`
+
+Set the LoRa modem preset directly by name, without having to go through `config set lora.modem_preset`. Valid preset names are case-insensitive.
+
+```bash
+meshtastic-cli config set-modem-preset LongFast
+meshtastic-cli config set-modem-preset ShortTurbo
+meshtastic-cli config set-modem-preset MediumSlow
+```
+
+Available presets:
+
+| Preset | Description |
+|---|---|
+| `LongFast` | Long range, faster throughput (default) |
+| `LongSlow` | Long range, slower throughput |
+| `VeryLongSlow` | Maximum range, very slow |
+| `MediumSlow` | Medium range, slower |
+| `MediumFast` | Medium range, faster |
+| `ShortSlow` | Short range, slower |
+| `ShortFast` | Short range, fastest throughput |
+| `LongModerate` | Long range, moderate throughput |
+| `ShortTurbo` | Short range, maximum throughput |
+
+#### `config ch-add-url`
+
+Add channels from a meshtastic:// URL without replacing existing channels. This differs from `config set-url`, which replaces all current channels with those from the URL.
+
+```bash
+meshtastic-cli config ch-add-url "https://meshtastic.org/e/#ENCODED..."
+```
+
+| Option | Description |
+|---|---|
+| `<URL>` | Meshtastic configuration URL (required) |
+
 ### `node`
 
 Node management commands.
@@ -461,7 +646,7 @@ meshtastic-cli node remove-ignored --to Pedro
 
 ### `device`
 
-Device management commands: reboot, shutdown, factory-reset, reset-nodedb, set-time, canned messages, and ringtone. Reboot and shutdown support targeting the local device (default) or a remote node.
+Device management commands: reboot, reboot-ota, enter-dfu, shutdown, factory reset variants, reset-nodedb, set-time, canned messages, and ringtone. Reboot and shutdown support targeting the local device (default) or a remote node.
 
 #### `device reboot`
 
@@ -487,6 +672,36 @@ meshtastic-cli device reboot --to Pedro
 | `--to` | Target node name. Omit to target local device |
 | `--delay` | Seconds before rebooting (default: 5) |
 
+#### `device reboot-ota`
+
+Reboot the device into OTA (Over-The-Air) firmware update mode. This is specific to ESP32-based Meshtastic hardware. Supports targeting the local device or a remote node.
+
+```bash
+# Reboot local device into OTA mode
+meshtastic-cli device reboot-ota
+
+# Reboot remote node into OTA mode
+meshtastic-cli device reboot-ota --dest 04e1c43b
+meshtastic-cli device reboot-ota --to Pedro
+
+# Custom delay
+meshtastic-cli device reboot-ota --delay 10
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Target node ID in hex. Omit to target local device |
+| `--to` | Target node name. Omit to target local device |
+| `--delay` | Seconds before rebooting into OTA mode (default: 5) |
+
+#### `device enter-dfu`
+
+Enter Device Firmware Upgrade (DFU) mode. This is specific to NRF52-based Meshtastic hardware (e.g., RAK devices). The device will appear as a USB mass storage device after entering DFU mode, allowing firmware file drops.
+
+```bash
+meshtastic-cli device enter-dfu
+```
+
 #### `device shutdown`
 
 Shut down the connected device or a remote node.
@@ -510,10 +725,18 @@ meshtastic-cli device shutdown --dest 04e1c43b
 
 #### `device factory-reset`
 
-Restore the device to factory defaults. This erases all configuration, channels, and stored data.
+Restore the device to factory defaults. This erases all configuration and stored data but **preserves BLE bonds**.
 
 ```bash
 meshtastic-cli device factory-reset
+```
+
+#### `device factory-reset-device`
+
+Perform a full factory reset that also **wipes all BLE bonds**. Use this when you want to completely reset the device as if it were brand new, including removing all previously paired Bluetooth devices.
+
+```bash
+meshtastic-cli device factory-reset-device
 ```
 
 #### `device reset-nodedb`
@@ -589,6 +812,27 @@ meshtastic-cli device set-ringtone "scale:d=4,o=5,b=120:c,e,g,c6"
 | Option | Description |
 |---|---|
 | `<RINGTONE>` | Ringtone string in RTTTL format (required) |
+
+#### `device get-ringtone`
+
+Display the notification ringtone currently stored on the device.
+
+```bash
+meshtastic-cli device get-ringtone
+
+# Custom timeout
+meshtastic-cli device get-ringtone --timeout 60
+```
+
+| Option | Description |
+|---|---|
+| `--timeout` | Seconds to wait for the device response (default: 30) |
+
+Example output:
+
+```
+Ringtone: scale:d=4,o=5,b=120:c,e,g,c6
+```
 
 ### `channel`
 
@@ -672,22 +916,26 @@ meshtastic-cli channel set 0 position_precision 14
 
 #### `channel qr`
 
-Generate a QR code and shareable meshtastic:// URL for the current channel configuration. By default the QR code is printed directly to the terminal using Unicode block characters. Use `--output` to save as a PNG or SVG image file.
+Generate a QR code and shareable meshtastic:// URL for the current channel configuration. By default the QR code is printed directly to the terminal using Unicode block characters. Use `--output` to save as a PNG or SVG image file. Use `--all` to generate a separate QR code for each active channel individually.
 
 ```bash
-# Print QR code to terminal (default)
+# Print combined QR code to terminal (all active channels)
 meshtastic-cli channel qr
 
-# Export as PNG image (512x512 minimum)
+# Export combined QR as PNG image (512x512 minimum)
 meshtastic-cli channel qr --output channels.png
 
-# Export as SVG image
+# Export combined QR as SVG image
 meshtastic-cli channel qr --output channels.svg
+
+# Print individual QR code per active channel to terminal
+meshtastic-cli channel qr --all
 ```
 
 | Option | Description |
 |---|---|
-| `--output` | File path for image export. Supports `.png` and `.svg` formats. Prints to terminal if omitted |
+| `--output` | File path for image export. Supports `.png` and `.svg` formats. Prints to terminal if omitted. Cannot be combined with `--all`. |
+| `--all` | Generate one QR code per active channel, printed to terminal. Cannot be combined with `--output`. |
 
 Example output (terminal):
 
@@ -703,6 +951,18 @@ Example output (file export):
 ok QR code saved to channels.png
 
 URL: https://meshtastic.org/e/#ENCODED...
+```
+
+Example output (`--all`, two active channels):
+
+```
+Channel 0: Default
+[block character QR code]
+URL: https://meshtastic.org/e/#ENCODED_CH0...
+
+Channel 1: Team
+[block character QR code]
+URL: https://meshtastic.org/e/#ENCODED_CH1...
 ```
 
 #### `config export`
@@ -797,7 +1057,7 @@ meshtastic-cli config set-ham KD2ABC --tx-power 17 --frequency 906.875
 
 #### `config set-url`
 
-Apply channels and LoRa configuration from a meshtastic:// URL. These URLs are typically generated by the Meshtastic app or web client for sharing device configurations.
+Apply channels and LoRa configuration from a meshtastic:// URL. These URLs are typically generated by the Meshtastic app or web client for sharing device configurations. **This replaces all existing channels** with those defined in the URL. To add channels without replacing existing ones, use `config ch-add-url`.
 
 ```bash
 meshtastic-cli config set-url "https://meshtastic.org/e/#ENCODED..."
@@ -879,7 +1139,7 @@ x Timeout after 30s -- no ACK from !04e1c43b (Pedro)
 
 ### `position`
 
-GPS position commands: get and set.
+GPS position commands: get, set, and remove.
 
 #### `position get`
 
@@ -891,7 +1151,7 @@ meshtastic-cli position get
 
 #### `position set`
 
-Set a fixed GPS position on the device. Requires latitude and longitude; altitude is optional.
+Set a fixed GPS position on the device. Requires latitude and longitude; altitude and broadcast flags are optional. Once a fixed position is set, the device broadcasts this position instead of using live GPS data.
 
 ```bash
 # Set position with latitude and longitude
@@ -899,6 +1159,9 @@ meshtastic-cli position set 40.4168 -3.7038
 
 # Set position with altitude (in meters)
 meshtastic-cli position set 40.4168 -3.7038 650
+
+# Set position with broadcast field flags (controls which fields are included in position packets)
+meshtastic-cli position set 40.4168 -3.7038 650 --flags 811
 ```
 
 | Option | Description |
@@ -906,6 +1169,15 @@ meshtastic-cli position set 40.4168 -3.7038 650
 | `<LATITUDE>` | Latitude in decimal degrees (required) |
 | `<LONGITUDE>` | Longitude in decimal degrees (required) |
 | `<ALTITUDE>` | Altitude in meters (optional) |
+| `--flags` | Position broadcast field flags as a u32 bitmask (optional). Controls which fields are included in outgoing position packets. |
+
+#### `position remove`
+
+Remove the fixed GPS position from the device. After removal, the device will return to using live GPS data if a GPS module is available.
+
+```bash
+meshtastic-cli position remove
+```
 
 ### `request`
 
@@ -970,6 +1242,90 @@ Device metadata from Pedro (!04e1c43b):
   Capabilities: HasWifi, HasBluetooth
 ```
 
+### `gpio`
+
+Remote GPIO pin operations on mesh nodes. Requires the target node to have the remote hardware module enabled. GPIO mask values can be provided in decimal or `0x` hex format.
+
+#### `gpio write`
+
+Write a value to GPIO pins on a remote node. The mask specifies which pins to affect; the value specifies the state to write to those pins.
+
+```bash
+# Set GPIO pin 4 high on a remote node (mask and value in decimal)
+meshtastic-cli gpio write --dest 04e1c43b --mask 16 --value 16
+
+# Set GPIO pin 4 high (mask and value in hex)
+meshtastic-cli gpio write --dest 04e1c43b --mask 0x10 --value 0x10
+
+# Set pin 4 high and pin 5 low
+meshtastic-cli gpio write --to Pedro --mask 0x30 --value 0x10
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Target node ID in hex (required unless `--to` is used) |
+| `--to` | Target node name (required unless `--dest` is used) |
+| `--mask` | Bitmask of GPIO pins to write (decimal or 0x hex) |
+| `--value` | Values to write to the masked pins (decimal or 0x hex) |
+
+#### `gpio read`
+
+Read the current state of GPIO pins from a remote node.
+
+```bash
+# Read pins 4 and 5 from a remote node (mask in decimal)
+meshtastic-cli gpio read --dest 04e1c43b --mask 48
+
+# Read using hex mask
+meshtastic-cli gpio read --to Pedro --mask 0x30
+
+# Custom timeout
+meshtastic-cli gpio read --dest 04e1c43b --mask 0x10 --timeout 60
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Target node ID in hex (required unless `--to` is used) |
+| `--to` | Target node name (required unless `--dest` is used) |
+| `--mask` | Bitmask of GPIO pins to read (decimal or 0x hex) |
+| `--timeout` | Seconds to wait for the response (default: 30) |
+
+Example output:
+
+```
+GPIO state from Pedro (!04e1c43b):
+  Mask:  0x00000030
+  Value: 0x00000010  (pin 4: HIGH, pin 5: LOW)
+```
+
+#### `gpio watch`
+
+Watch for GPIO state changes on a remote node. Runs continuously until interrupted with Ctrl+C. Each state change is printed with a timestamp.
+
+```bash
+# Watch pins 4 and 5
+meshtastic-cli gpio watch --dest 04e1c43b --mask 0x30
+
+# Watch by node name
+meshtastic-cli gpio watch --to Pedro --mask 0x10
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Target node ID in hex (required unless `--to` is used) |
+| `--to` | Target node name (required unless `--dest` is used) |
+| `--mask` | Bitmask of GPIO pins to watch (decimal or 0x hex) |
+
+Example output:
+
+```
+-> Watching GPIO on Pedro (!04e1c43b) [mask: 0x00000030]. Press Ctrl+C to stop.
+
+[15:30:02] Value changed: 0x00000010  (pin 4: HIGH, pin 5: LOW)
+[15:31:15] Value changed: 0x00000030  (pin 4: HIGH, pin 5: HIGH)
+[15:32:40] Value changed: 0x00000000  (pin 4: LOW, pin 5: LOW)
+```
+
 ---
 
 ## Architecture
@@ -982,30 +1338,34 @@ CLI Input
     v
 main.rs  (argument parsing + dispatch only)
     |
-    +---> connection.rs  (TCP or Serial -> StreamApi)
+    +---> connection.rs  (TCP, Serial, or BLE -> StreamApi)
     |
     +---> commands/
-              mod.rs      (Command trait definition)
-              nodes.rs    (implements Command for node listing)
-              send.rs     (implements Command for sending messages)
-              listen.rs   (implements Command for packet streaming)
-              info.rs     (implements Command for device info display)
-              ping.rs     (implements Command for node ping with ACK)
-              config.rs   (implements Command for config get/set)
-              channel.rs  (implements Command for channel management)
-              traceroute.rs (implements Command for route tracing)
+              mod.rs          (Command trait definition)
+              nodes.rs        (implements Command for node listing)
+              send.rs         (implements Command for sending messages)
+              listen.rs       (implements Command for packet streaming)
+              info.rs         (implements Command for device info display)
+              ping.rs         (implements Command for node ping with ACK)
+              config.rs       (implements Command for config get/set)
+              channel.rs      (implements Command for channel management)
+              traceroute.rs   (implements Command for route tracing)
               export_import.rs (implements Command for config export/import)
-              device.rs   (implements Command for reboot/shutdown/time/canned/ringtone)
-              node.rs     (implements Command for node management)
-              position.rs (implements Command for GPS position get/set)
-              request.rs  (implements Command for remote data requests)
+              device.rs       (implements Command for reboot/shutdown/time/canned/ringtone)
+              node.rs         (implements Command for node management)
+              position.rs     (implements Command for GPS position get/set/remove)
+              request.rs      (implements Command for remote data requests)
+              reply.rs        (implements Command for auto-reply)
+              gpio.rs         (implements Command for remote GPIO operations)
+              support.rs      (implements Command for diagnostic info display)
 ```
 
 ### Key Patterns
 
 - **Command pattern (Strategy)**: `commands/mod.rs` defines a `Command` trait. Each subcommand implements it independently. `main.rs` dispatches to the correct implementor based on parsed CLI input.
-- **Connection abstraction**: `connection.rs` encapsulates both TCP (via `meshtastic`'s `StreamApi`) and serial (via `tokio-serial`) connections, exposing a unified interface to commands.
+- **Connection abstraction**: `connection.rs` encapsulates TCP (via `meshtastic`'s `StreamApi`), serial (via `tokio-serial`), and BLE connections, exposing a unified interface to commands.
 - **Error types**: `error.rs` uses `thiserror` for structured, typed errors. `anyhow` is used at the boundary (main) for ergonomic top-level error handling.
+- **Feature flags**: BLE support is gated behind the `ble` Cargo feature to avoid requiring Bluetooth platform libraries in environments that do not need them.
 
 ### Tech Stack
 
@@ -1033,6 +1393,10 @@ main.rs  (argument parsing + dispatch only)
 ```bash
 cargo build            # debug build
 cargo build --release  # optimized release build
+
+# With BLE support
+cargo build --features ble
+cargo build --release --features ble
 ```
 
 ### Run (without installing)
@@ -1043,6 +1407,9 @@ cargo run -- --host 127.0.0.1 --port 4403 nodes
 
 # Serial
 cargo run -- --serial /dev/ttyUSB0 nodes
+
+# BLE (requires --features ble build)
+cargo run --features ble -- --ble "Meshtastic_abcd" nodes
 ```
 
 ### Tests
@@ -1074,7 +1441,7 @@ meshtastic-cli/
 └── src/
     ├── main.rs              # CLI parsing and command dispatch only
     ├── cli.rs               # Clap argument and subcommand definitions
-    ├── connection.rs        # TCP and serial connection handling
+    ├── connection.rs        # TCP, serial, and BLE connection handling
     ├── error.rs             # Typed error definitions (thiserror)
     ├── node_db.rs           # Node data model and local node database
     ├── router.rs            # Packet routing and dispatch logic
@@ -1091,8 +1458,11 @@ meshtastic-cli/
         ├── export_import.rs # `config export`/`config import` implementation
         ├── device.rs        # `device` subcommands implementation
         ├── node.rs          # `node` subcommands implementation
-        ├── position.rs      # `position get/set` implementation
-        └── request.rs       # `request telemetry/position/metadata` implementation
+        ├── position.rs      # `position get/set/remove` implementation
+        ├── request.rs       # `request telemetry/position/metadata` implementation
+        ├── reply.rs         # `reply` command implementation
+        ├── gpio.rs          # `gpio write/read/watch` implementation
+        └── support.rs       # `support` command implementation
 ```
 
 ---
@@ -1146,12 +1516,28 @@ meshtastic-cli/
 | `device set-time` | Set node time via Unix timestamp | Done |
 | `request metadata` | Retrieve device metadata from a remote node | Done |
 
-### Future
+### Feature Parity Additions
 
-| Command | Description | Status |
+| Feature | Description | Status |
 |---|---|---|
-| `gpio` | Read/write/watch GPIO on remote nodes | Planned |
-| `reply` | Auto-reply to received messages with stats | Planned |
+| `reply` | Auto-reply to received messages with signal info | Done |
+| `gpio write/read/watch` | Remote GPIO pin operations on mesh nodes | Done |
+| `support` | Display diagnostic info about device and CLI | Done |
+| `send --ack` | Wait for delivery confirmation before returning | Done |
+| `send --private` | Send on PRIVATE_APP port for private messaging | Done |
+| `channel qr --all` | Generate individual QR per active channel | Done |
+| `config begin-edit` / `commit-edit` | Batch config change signaling | Done |
+| `config set-modem-preset` | Set modem preset directly by name | Done |
+| `config ch-add-url` | Add channels from URL without replacing existing | Done |
+| `nodes --fields` | Select which columns to display | Done |
+| `--ble` / `--ble-scan` | BLE connection support | Done |
+| `--no-nodes` | Skip node collection on startup for faster startup | Done |
+| `position remove` | Clear fixed GPS position | Done |
+| `position set --flags` | Set position broadcast field flags | Done |
+| `device get-ringtone` | Display the stored ringtone | Done |
+| `device reboot-ota` | Reboot into OTA firmware update mode (ESP32) | Done |
+| `device enter-dfu` | Enter DFU mode (NRF52 devices) | Done |
+| `device factory-reset-device` | Full factory reset including BLE bond wipe | Done |
 
 ---
 

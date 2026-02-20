@@ -4,6 +4,33 @@ use meshtastic::protobufs::{self, admin_message};
 
 use super::{Command, CommandContext};
 
+// ── PositionRemoveCommand ────────────────────────────────────────
+
+pub struct PositionRemoveCommand;
+
+#[async_trait]
+impl Command for PositionRemoveCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let my_id = ctx.node_db.my_node_num();
+
+        println!("{} Removing fixed position...", "->".cyan());
+
+        super::device::send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::RemoveFixedPosition(true),
+        )
+        .await?;
+
+        println!(
+            "{} Fixed position removed. Device will use GPS if available.",
+            "ok".green()
+        );
+
+        Ok(())
+    }
+}
+
 // ── PositionGetCommand ────────────────────────────────────────────
 
 pub struct PositionGetCommand;
@@ -61,6 +88,7 @@ pub struct PositionSetCommand {
     pub latitude: f64,
     pub longitude: f64,
     pub altitude: i32,
+    pub flags: Option<u32>,
 }
 
 #[async_trait]
@@ -101,6 +129,21 @@ impl Command for PositionSetCommand {
             "{} Fixed position set. Device will use this location instead of GPS.",
             "ok".green()
         );
+
+        if let Some(flags) = self.flags {
+            let mut pos_config = ctx.node_db.local_config().position.unwrap_or_default();
+            pos_config.position_flags = flags;
+
+            let config_packet = protobufs::Config {
+                payload_variant: Some(protobufs::config::PayloadVariant::Position(pos_config)),
+            };
+
+            ctx.api
+                .update_config(&mut ctx.router, config_packet)
+                .await?;
+
+            println!("{} Position flags set to {}.", "ok".green(), flags);
+        }
 
         Ok(())
     }

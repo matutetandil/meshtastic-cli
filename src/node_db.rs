@@ -23,6 +23,7 @@ impl NodeDb {
     pub async fn collect_initial(
         receiver: &mut PacketReceiver,
         config_id: u32,
+        skip_nodes: bool,
     ) -> Result<Self, CliError> {
         let mut my_node_info: Option<protobufs::MyNodeInfo> = None;
         let mut nodes: HashMap<u32, protobufs::NodeInfo> = HashMap::new();
@@ -49,8 +50,10 @@ impl NodeDb {
                     my_node_info = Some(info);
                 }
                 PayloadVariant::NodeInfo(info) => {
-                    log::debug!("Received NodeInfo: num={}", info.num);
-                    nodes.insert(info.num, info);
+                    if !skip_nodes {
+                        log::debug!("Received NodeInfo: num={}", info.num);
+                        nodes.insert(info.num, info);
+                    }
                 }
                 PayloadVariant::Channel(ch) => {
                     log::debug!("Received Channel: index={}", ch.index);

@@ -17,6 +17,16 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
+    if cli.connection.ble_scan {
+        connection::scan_ble_devices().await?;
+        return Ok(());
+    }
+
+    let Some(ref cmd) = cli.command else {
+        eprintln!("No command specified. Run with --help for usage.");
+        std::process::exit(1);
+    };
+
     let conn = connection::establish(&cli.connection).await?;
     let router = MeshRouter::new(conn.node_db.my_node_num());
 
@@ -27,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
         router,
     };
 
-    let command = create_command(&cli.command)?;
+    let command = create_command(cmd)?;
     command.execute(ctx).await?;
 
     Ok(())

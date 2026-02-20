@@ -9,7 +9,7 @@ pub struct Cli {
     pub connection: ConnectionArgs,
 
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(Args, Debug)]
@@ -25,12 +25,28 @@ pub struct ConnectionArgs {
     /// Serial port path (overrides TCP connection)
     #[arg(long)]
     pub serial: Option<String>,
+
+    /// BLE device name or MAC address (requires --features ble)
+    #[arg(long)]
+    pub ble: Option<String>,
+
+    /// Scan for available BLE Meshtastic devices and exit
+    #[arg(long)]
+    pub ble_scan: bool,
+
+    /// Skip collecting nodes during connection (faster startup)
+    #[arg(long)]
+    pub no_nodes: bool,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// List all nodes in the mesh network
-    Nodes,
+    Nodes {
+        /// Comma-separated list of fields to display (e.g. id,name,battery,snr,hops,last_heard,hw_model,role,position)
+        #[arg(long)]
+        fields: Option<String>,
+    },
 
     /// Send a text message to the mesh network
     Send {
@@ -48,6 +64,18 @@ pub enum Commands {
         /// Channel index (0-7)
         #[arg(long, default_value_t = 0)]
         channel: u32,
+
+        /// Wait for delivery acknowledgment (requires --dest or --to)
+        #[arg(long)]
+        ack: bool,
+
+        /// Timeout in seconds when waiting for ACK
+        #[arg(long, default_value_t = 30)]
+        timeout: u64,
+
+        /// Send via PRIVATE_APP port instead of TEXT_MESSAGE_APP
+        #[arg(long)]
+        private: bool,
     },
 
     /// Stream incoming packets from the mesh network in real time
@@ -91,6 +119,18 @@ pub enum Commands {
         #[command(subcommand)]
         action: ChannelAction,
     },
+
+    /// Auto-reply to incoming messages with signal info (SNR, RSSI, hops)
+    Reply,
+
+    /// Remote GPIO operations
+    Gpio {
+        #[command(subcommand)]
+        action: GpioAction,
+    },
+
+    /// Print diagnostic info for support/troubleshooting
+    Support,
 
     /// Trace route to a node, showing each hop with SNR
     Traceroute {
@@ -167,6 +207,20 @@ pub enum ConfigAction {
     },
     /// Apply channels and LoRa config from a meshtastic:// URL
     SetUrl {
+        /// Meshtastic URL (e.g. https://meshtastic.org/e/#... or meshtastic://...)
+        url: String,
+    },
+    /// Begin a batch editing session (changes are queued until commit)
+    BeginEdit,
+    /// Commit queued configuration changes from a batch editing session
+    CommitEdit,
+    /// Set the LoRa modem preset
+    SetModemPreset {
+        /// Modem preset to apply
+        preset: ModemPresetArg,
+    },
+    /// Add channels from a meshtastic:// URL without replacing existing ones
+    ChAddUrl {
         /// Meshtastic URL (e.g. https://meshtastic.org/e/#... or meshtastic://...)
         url: String,
     },
@@ -290,6 +344,30 @@ pub enum DeviceAction {
         /// Ringtone in RTTTL format (e.g. "ring:d=4,o=5,b=120:c,e,g")
         ringtone: String,
     },
+    /// Display the configured ringtone
+    GetRingtone {
+        /// Timeout in seconds to wait for response
+        #[arg(long, default_value_t = 30)]
+        timeout: u64,
+    },
+    /// Reboot into OTA update mode (ESP32 devices)
+    RebootOta {
+        /// Target node ID in hex (e.g. 04e1c43b). Omit to reboot local device.
+        #[arg(long, conflicts_with = "to")]
+        dest: Option<String>,
+
+        /// Target node name. Omit to reboot local device.
+        #[arg(long, conflicts_with = "dest")]
+        to: Option<String>,
+
+        /// Delay in seconds before rebooting
+        #[arg(long, default_value_t = 5)]
+        delay: i32,
+    },
+    /// Enter DFU mode for firmware update (NRF52 devices)
+    EnterDfu,
+    /// Full factory reset (wipes everything including BLE bonds)
+    FactoryResetDevice,
 }
 
 #[derive(Subcommand, Debug)]
@@ -305,7 +383,12 @@ pub enum PositionAction {
         /// Altitude in meters above sea level
         #[arg(default_value_t = 0)]
         alt: i32,
+        /// Position broadcast field flags (bitmask)
+        #[arg(long)]
+        flags: Option<u32>,
     },
+    /// Remove the fixed GPS position (re-enables GPS)
+    Remove,
 }
 
 #[derive(Subcommand, Debug)]
@@ -386,7 +469,78 @@ pub enum ChannelAction {
         /// Output file path (.png or .svg). Prints to terminal if omitted.
         #[arg(long)]
         output: Option<String>,
+
+        /// Generate individual QR codes for each active channel
+        #[arg(long)]
+        all: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum GpioAction {
+    /// Write GPIO pin values on a remote node
+    Write {
+        /// Target node ID in hex
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Target node name
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+
+        /// GPIO bitmask (decimal or 0x hex)
+        #[arg(long)]
+        mask: String,
+
+        /// GPIO value (decimal or 0x hex)
+        #[arg(long)]
+        value: String,
+    },
+    /// Read GPIO pin values from a remote node
+    Read {
+        /// Target node ID in hex
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Target node name
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+
+        /// GPIO bitmask to read (decimal or 0x hex)
+        #[arg(long)]
+        mask: String,
+
+        /// Timeout in seconds
+        #[arg(long, default_value_t = 30)]
+        timeout: u64,
+    },
+    /// Watch GPIO pin changes on a remote node
+    Watch {
+        /// Target node ID in hex
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Target node name
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+
+        /// GPIO bitmask to watch (decimal or 0x hex)
+        #[arg(long)]
+        mask: String,
+    },
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ModemPresetArg {
+    LongFast,
+    LongSlow,
+    VeryLongSlow,
+    MediumSlow,
+    MediumFast,
+    ShortSlow,
+    ShortFast,
+    LongModerate,
+    ShortTurbo,
 }
 
 #[derive(Debug, Clone, ValueEnum)]

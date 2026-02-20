@@ -26,4 +26,7 @@ pub enum CliError {
 
     #[error("Invalid argument: {0}")]
     InvalidArgument(String),
+
+    #[error("BLE error: {0}")]
+    Ble(String),
 }

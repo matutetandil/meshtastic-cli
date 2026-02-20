@@ -229,6 +229,7 @@ impl Command for ChannelSetCommand {
 
 pub struct ChannelQrCommand {
     pub output: Option<String>,
+    pub all: bool,
 }
 
 #[async_trait]
@@ -237,57 +238,95 @@ impl Command for ChannelQrCommand {
         let channels = ctx.node_db.channels();
         let lora_config = ctx.node_db.local_config().lora.clone();
 
-        let settings: Vec<ChannelSettings> = channels
+        let active_channels: Vec<&protobufs::Channel> = channels
             .iter()
             .filter(|ch| ch.role != channel::Role::Disabled as i32)
-            .filter_map(|ch| ch.settings.clone())
             .collect();
 
-        if settings.is_empty() {
+        if active_channels.is_empty() {
             println!("{}", "(no enabled channels to share)".dimmed());
             return Ok(());
         }
 
-        let channel_set = protobufs::ChannelSet {
-            settings,
-            lora_config,
-        };
+        if self.all {
+            if self.output.is_some() {
+                bail!("--all and --output cannot be used together");
+            }
 
-        let encoded = channel_set.encode_to_vec();
-        let b64 = base64_url_encode(&encoded);
-        let url = format!("https://meshtastic.org/e/#{}", b64);
+            for ch in &active_channels {
+                let Some(settings) = ch.settings.clone() else {
+                    continue;
+                };
+                let name = if settings.name.is_empty() {
+                    "Default".to_string()
+                } else {
+                    settings.name.clone()
+                };
 
-        let code = QrCode::new(url.as_bytes())?;
+                let channel_set = protobufs::ChannelSet {
+                    settings: vec![settings],
+                    lora_config: lora_config.clone(),
+                };
 
-        match &self.output {
-            Some(path) => {
-                let ext = Path::new(path)
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("")
-                    .to_lowercase();
+                let encoded = channel_set.encode_to_vec();
+                let b64 = base64_url_encode(&encoded);
+                let url = format!("https://meshtastic.org/e/#{}", b64);
 
-                match ext.as_str() {
-                    "png" => {
-                        let img = code.render::<Luma<u8>>().min_dimensions(512, 512).build();
-                        img.save(path)?;
-                        println!("{} QR code saved to {}", "ok".green(), path.bold());
+                println!("{} {} (index {})", "Channel:".bold(), name.bold(), ch.index);
+
+                let code = QrCode::new(url.as_bytes())?;
+                render_terminal_qr(&code);
+                println!("{} {}", "URL:".bold(), url);
+                println!();
+            }
+        } else {
+            let settings: Vec<ChannelSettings> = active_channels
+                .iter()
+                .filter_map(|ch| ch.settings.clone())
+                .collect();
+
+            let channel_set = protobufs::ChannelSet {
+                settings,
+                lora_config,
+            };
+
+            let encoded = channel_set.encode_to_vec();
+            let b64 = base64_url_encode(&encoded);
+            let url = format!("https://meshtastic.org/e/#{}", b64);
+
+            let code = QrCode::new(url.as_bytes())?;
+
+            match &self.output {
+                Some(path) => {
+                    let ext = Path::new(path)
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+
+                    match ext.as_str() {
+                        "png" => {
+                            let img = code.render::<Luma<u8>>().min_dimensions(512, 512).build();
+                            img.save(path)?;
+                            println!("{} QR code saved to {}", "ok".green(), path.bold());
+                        }
+                        "svg" => {
+                            let svg_xml =
+                                code.render::<svg::Color>().min_dimensions(256, 256).build();
+                            std::fs::write(path, svg_xml)?;
+                            println!("{} QR code saved to {}", "ok".green(), path.bold());
+                        }
+                        _ => bail!("Unsupported format '.{}'. Use .png or .svg", ext),
                     }
-                    "svg" => {
-                        let svg_xml = code.render::<svg::Color>().min_dimensions(256, 256).build();
-                        std::fs::write(path, svg_xml)?;
-                        println!("{} QR code saved to {}", "ok".green(), path.bold());
-                    }
-                    _ => bail!("Unsupported format '.{}'. Use .png or .svg", ext),
+                }
+                None => {
+                    render_terminal_qr(&code);
                 }
             }
-            None => {
-                render_terminal_qr(&code);
-            }
-        }
 
-        println!();
-        println!("{} {}", "URL:".bold(), url);
+            println!();
+            println!("{} {}", "URL:".bold(), url);
+        }
 
         Ok(())
     }
@@ -324,7 +363,7 @@ fn render_terminal_qr(code: &QrCode) {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-fn find_next_free_index(channels: &[protobufs::Channel]) -> anyhow::Result<i32> {
+pub(super) fn find_next_free_index(channels: &[protobufs::Channel]) -> anyhow::Result<i32> {
     for i in 1..=7 {
         let is_used = channels
             .iter()
