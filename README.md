@@ -35,6 +35,7 @@
 - `config import` command: import and apply configuration from a YAML file
 - `device reboot` command: reboot local or remote device with configurable delay
 - `device shutdown` command: shut down local or remote device with configurable delay
+- `node set-owner` command: set device long name and short name
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -116,6 +117,7 @@ Commands:
   listen   Stream incoming packets in real time
   info     Show local node and device information
   config      Get, set, export, or import device configuration
+  node        Node management (set-owner)
   device      Device management (reboot, shutdown)
   channel     Manage channels (add, delete, set, list)
   traceroute  Trace route to a node showing each hop
@@ -336,6 +338,30 @@ Example output:
 ! Device will reboot to apply changes.
 ok Configuration updated.
 ```
+
+### `node`
+
+Node management commands.
+
+#### `node set-owner`
+
+Set the device owner name (long name and short name). The short name is auto-generated from the long name if omitted.
+
+```bash
+# Set long name (short name auto-generated as "PD")
+meshtastic-cli node set-owner "Pedro"
+
+# Set both long and short name
+meshtastic-cli node set-owner "Pedro's Node" --short PN
+
+# Multi-word names generate initials (e.g. "My Cool Node" -> "MCN")
+meshtastic-cli node set-owner "My Cool Node"
+```
+
+| Option | Description |
+|---|---|
+| `<NAME>` | Long name for the device, up to 40 characters (required) |
+| `--short` | Short name, up to 5 characters. Auto-generated if omitted |
 
 ### `device`
 
@@ -634,6 +660,7 @@ main.rs  (argument parsing + dispatch only)
               traceroute.rs (implements Command for route tracing)
               export_import.rs (implements Command for config export/import)
               device.rs   (implements Command for reboot/shutdown)
+              node.rs     (implements Command for node management)
 ```
 
 ### Key Patterns
@@ -722,7 +749,8 @@ meshtastic-cli/
         ├── traceroute.rs    # `traceroute` command implementation
         ├── channel.rs       # `channel` command implementation
         ├── export_import.rs # `config export`/`config import` implementation
-        └── device.rs        # `device reboot`/`device shutdown` implementation
+        ├── device.rs        # `device reboot`/`device shutdown` implementation
+        └── node.rs          # `node set-owner` implementation
 ```
 
 ---
@@ -750,7 +778,7 @@ The following commands are planned in priority order:
 | `config import` | Import and apply config from a YAML file | Done |
 | `device reboot` | Reboot a node (local or remote) | Done |
 | `device shutdown` | Shut down a node (local or remote) | Done |
-| `set-owner` | Set device long name and short name | Planned |
+| `node set-owner` | Set device long name and short name | Done |
 
 ### Tier 2 — Medium Priority
 

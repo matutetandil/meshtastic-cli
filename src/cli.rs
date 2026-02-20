@@ -62,6 +62,12 @@ pub enum Commands {
         action: ConfigAction,
     },
 
+    /// Node management (set-owner)
+    Node {
+        #[command(subcommand)]
+        action: NodeAction,
+    },
+
     /// Device management (reboot, shutdown)
     Device {
         #[command(subcommand)]
@@ -129,6 +135,19 @@ pub enum ConfigAction {
     Import {
         /// YAML configuration file to import
         file: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum NodeAction {
+    /// Set the device owner name
+    SetOwner {
+        /// Long name for the device (up to 40 characters)
+        name: String,
+
+        /// Short name (up to 5 characters). Auto-generated from long name if omitted.
+        #[arg(long)]
+        short: Option<String>,
     },
 }
 

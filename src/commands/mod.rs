@@ -4,6 +4,7 @@ mod device;
 mod export_import;
 mod info;
 mod listen;
+mod node;
 mod nodes;
 mod ping;
 mod send;
@@ -16,7 +17,7 @@ use meshtastic::api::ConnectedStreamApi;
 use meshtastic::packet::{PacketDestination, PacketReceiver};
 use meshtastic::types::{MeshChannel, NodeId};
 
-use crate::cli::{ChannelAction, Commands, ConfigAction, DeviceAction};
+use crate::cli::{ChannelAction, Commands, ConfigAction, DeviceAction, NodeAction};
 use crate::error::CliError;
 use crate::node_db::NodeDb;
 use crate::router::MeshRouter;
@@ -152,6 +153,12 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 timeout_secs: *timeout,
             }))
         }
+        Commands::Node { action } => match action {
+            NodeAction::SetOwner { name, short } => Ok(Box::new(node::SetOwnerCommand {
+                long_name: name.clone(),
+                short_name: short.clone(),
+            })),
+        },
         Commands::Device { action } => match action {
             DeviceAction::Reboot { dest, to, delay } => {
                 let destination = parse_dest_spec(dest, to)?;

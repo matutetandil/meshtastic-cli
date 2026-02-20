@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `device reboot` command to reboot local or remote device with configurable delay (default 5s)
 - `device shutdown` command to shut down local or remote device with configurable delay (default 5s)
 - `DeviceAction` enum with `Reboot` and `Shutdown` subcommands, supporting `--dest`, `--to`, and `--delay` options
+- `node set-owner` command to set device long name and short name via `update_user()` API
+- Auto-generated short name from long name when `--short` is omitted (initials for multi-word, first 4 chars for single word)
 
 ## [0.2.0] - 2026-02-20
 
