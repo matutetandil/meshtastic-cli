@@ -62,6 +62,12 @@ pub enum Commands {
         action: ConfigAction,
     },
 
+    /// Device management (reboot, shutdown)
+    Device {
+        #[command(subcommand)]
+        action: DeviceAction,
+    },
+
     /// Manage channels (add, delete, set properties)
     Channel {
         #[command(subcommand)]
@@ -123,6 +129,38 @@ pub enum ConfigAction {
     Import {
         /// YAML configuration file to import
         file: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DeviceAction {
+    /// Reboot the device (local or remote)
+    Reboot {
+        /// Target node ID in hex (e.g. 04e1c43b). Omit to reboot local device.
+        #[arg(long, conflicts_with = "to")]
+        dest: Option<String>,
+
+        /// Target node name. Omit to reboot local device.
+        #[arg(long, conflicts_with = "dest")]
+        to: Option<String>,
+
+        /// Delay in seconds before rebooting
+        #[arg(long, default_value_t = 5)]
+        delay: i32,
+    },
+    /// Shut down the device (local or remote)
+    Shutdown {
+        /// Target node ID in hex (e.g. 04e1c43b). Omit to shut down local device.
+        #[arg(long, conflicts_with = "to")]
+        dest: Option<String>,
+
+        /// Target node name. Omit to shut down local device.
+        #[arg(long, conflicts_with = "dest")]
+        to: Option<String>,
+
+        /// Delay in seconds before shutting down
+        #[arg(long, default_value_t = 5)]
+        delay: i32,
     },
 }
 

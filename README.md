@@ -33,6 +33,8 @@
 - `channel` command: add, delete, list, and set properties on channels (name, PSK, uplink/downlink)
 - `config export` command: export full device configuration (config, module config, channels) to YAML
 - `config import` command: import and apply configuration from a YAML file
+- `device reboot` command: reboot local or remote device with configurable delay
+- `device shutdown` command: shut down local or remote device with configurable delay
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -114,6 +116,7 @@ Commands:
   listen   Stream incoming packets in real time
   info     Show local node and device information
   config      Get, set, export, or import device configuration
+  device      Device management (reboot, shutdown)
   channel     Manage channels (add, delete, set, list)
   traceroute  Trace route to a node showing each hop
   ping        Ping a node and measure round-trip time
@@ -333,6 +336,55 @@ Example output:
 ! Device will reboot to apply changes.
 ok Configuration updated.
 ```
+
+### `device`
+
+Device management commands: reboot and shutdown. Both support targeting the local device (default) or a remote node.
+
+#### `device reboot`
+
+Reboot the connected device or a remote node.
+
+```bash
+# Reboot local device (5 second delay)
+meshtastic-cli device reboot
+
+# Reboot with custom delay
+meshtastic-cli device reboot --delay 10
+
+# Reboot a remote node by ID
+meshtastic-cli device reboot --dest 04e1c43b
+
+# Reboot a remote node by name
+meshtastic-cli device reboot --to Pedro
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Target node ID in hex. Omit to target local device |
+| `--to` | Target node name. Omit to target local device |
+| `--delay` | Seconds before rebooting (default: 5) |
+
+#### `device shutdown`
+
+Shut down the connected device or a remote node.
+
+```bash
+# Shutdown local device
+meshtastic-cli device shutdown
+
+# Shutdown with custom delay
+meshtastic-cli device shutdown --delay 10
+
+# Shutdown a remote node
+meshtastic-cli device shutdown --dest 04e1c43b
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Target node ID in hex. Omit to target local device |
+| `--to` | Target node name. Omit to target local device |
+| `--delay` | Seconds before shutting down (default: 5) |
 
 ### `channel`
 
@@ -581,6 +633,7 @@ main.rs  (argument parsing + dispatch only)
               channel.rs  (implements Command for channel management)
               traceroute.rs (implements Command for route tracing)
               export_import.rs (implements Command for config export/import)
+              device.rs   (implements Command for reboot/shutdown)
 ```
 
 ### Key Patterns
@@ -668,7 +721,8 @@ meshtastic-cli/
         ├── config.rs        # `config get/set` command implementation
         ├── traceroute.rs    # `traceroute` command implementation
         ├── channel.rs       # `channel` command implementation
-        └── export_import.rs # `export-config`/`import-config` implementation
+        ├── export_import.rs # `config export`/`config import` implementation
+        └── device.rs        # `device reboot`/`device shutdown` implementation
 ```
 
 ---
@@ -694,8 +748,8 @@ The following commands are planned in priority order:
 | `channel add/del/set` | Add, delete, and configure channels | Done |
 | `config export` | Export full device config as YAML | Done |
 | `config import` | Import and apply config from a YAML file | Done |
-| `reboot` | Reboot a node (local or remote) | Planned |
-| `shutdown` | Shut down a node (local or remote) | Planned |
+| `device reboot` | Reboot a node (local or remote) | Done |
+| `device shutdown` | Shut down a node (local or remote) | Done |
 | `set-owner` | Set device long name and short name | Planned |
 
 ### Tier 2 — Medium Priority

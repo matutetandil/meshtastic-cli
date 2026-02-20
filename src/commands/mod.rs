@@ -1,5 +1,6 @@
 mod channel;
 mod config;
+mod device;
 mod export_import;
 mod info;
 mod listen;
@@ -15,7 +16,7 @@ use meshtastic::api::ConnectedStreamApi;
 use meshtastic::packet::{PacketDestination, PacketReceiver};
 use meshtastic::types::{MeshChannel, NodeId};
 
-use crate::cli::{ChannelAction, Commands, ConfigAction};
+use crate::cli::{ChannelAction, Commands, ConfigAction, DeviceAction};
 use crate::error::CliError;
 use crate::node_db::NodeDb;
 use crate::router::MeshRouter;
@@ -151,6 +152,22 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 timeout_secs: *timeout,
             }))
         }
+        Commands::Device { action } => match action {
+            DeviceAction::Reboot { dest, to, delay } => {
+                let destination = parse_dest_spec(dest, to)?;
+                Ok(Box::new(device::RebootCommand {
+                    destination,
+                    delay_secs: *delay,
+                }))
+            }
+            DeviceAction::Shutdown { dest, to, delay } => {
+                let destination = parse_dest_spec(dest, to)?;
+                Ok(Box::new(device::ShutdownCommand {
+                    destination,
+                    delay_secs: *delay,
+                }))
+            }
+        },
         Commands::Channel { action } => match action {
             ChannelAction::List => Ok(Box::new(channel::ChannelListCommand)),
             ChannelAction::Add { name, psk } => Ok(Box::new(channel::ChannelAddCommand {

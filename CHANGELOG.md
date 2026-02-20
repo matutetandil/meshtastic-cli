@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `config export` subcommand to export full device configuration (device config, module config, channels) as YAML to stdout or file
 - `config import` subcommand to import and apply configuration from a YAML file, with per-section updates and channel restoration
 - `serde` and `serde_yaml` dependencies for YAML serialization/deserialization
+- `device reboot` command to reboot local or remote device with configurable delay (default 5s)
+- `device shutdown` command to shut down local or remote device with configurable delay (default 5s)
+- `DeviceAction` enum with `Reboot` and `Shutdown` subcommands, supporting `--dest`, `--to`, and `--delay` options
 
 ## [0.2.0] - 2026-02-20
 
