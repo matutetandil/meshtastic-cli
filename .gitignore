@@ -1,0 +1,18 @@
+/target
+.DS_Store
+*.swp
+*.swo
+*~
+.env
+
+# AI assistant files
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+.cursorrules
+.cursorignore
+.cursor/
+.aider*
+.github/copilot-*
+copilot-instructions.md
+.windsurfrules

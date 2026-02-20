@@ -1,0 +1,16 @@
+Lora:
+  Module: sx1262
+  CS: 5
+  IRQ: 4
+  Busy: 1
+  Reset: 0
+  TXen: 13
+  DIO3_TCXO_VOLTAGE: true
+  Region: US
+
+Webserver:
+  Port: 443
+
+General:
+  MaxNodes: 100
+  MACAddress: "24:62:AB:F3:E4:01"
