@@ -62,6 +62,21 @@ pub enum Commands {
         action: ConfigAction,
     },
 
+    /// Trace route to a node, showing each hop with SNR
+    Traceroute {
+        /// Destination node ID in hex (e.g. 04e1c43b or '!04e1c43b')
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Destination node name (e.g. Pedro). Searches known nodes by name.
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+
+        /// Timeout in seconds to wait for traceroute response
+        #[arg(long, default_value_t = 60)]
+        timeout: u64,
+    },
+
     /// Ping a node and wait for ACK to measure round-trip time
     Ping {
         /// Destination node ID in hex (e.g. 04e1c43b or '!04e1c43b')

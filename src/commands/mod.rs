@@ -4,6 +4,7 @@ mod listen;
 mod nodes;
 mod ping;
 mod send;
+mod traceroute;
 
 use anyhow::bail;
 use async_trait::async_trait;
@@ -137,6 +138,13 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
         Commands::Ping { dest, to, timeout } => {
             let destination = parse_dest_spec(dest, to)?;
             Ok(Box::new(ping::PingCommand {
+                destination,
+                timeout_secs: *timeout,
+            }))
+        }
+        Commands::Traceroute { dest, to, timeout } => {
+            let destination = parse_dest_spec(dest, to)?;
+            Ok(Box::new(traceroute::TracerouteCommand {
                 destination,
                 timeout_secs: *timeout,
             }))

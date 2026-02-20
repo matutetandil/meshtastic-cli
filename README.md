@@ -29,6 +29,7 @@
 - `ping` command: ping a specific node by ID or name, measure round-trip time, with configurable timeout
 - `config get` command: display all or individual device/module configuration sections
 - `config set` command: modify any configuration field with automatic device reboot
+- `traceroute` command: trace route to a node showing each hop with SNR values
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -109,8 +110,9 @@ Commands:
   send     Send a text message to the mesh network
   listen   Stream incoming packets in real time
   info     Show local node and device information
-  config   Get or set device configuration
-  ping     Ping a node and measure round-trip time
+  config      Get or set device configuration
+  traceroute  Trace route to a node showing each hop
+  ping        Ping a node and measure round-trip time
 ```
 
 ### Connection examples
@@ -328,6 +330,41 @@ Example output:
 ok Configuration updated.
 ```
 
+### `traceroute`
+
+Traces the route to a destination node, showing each hop along the path with SNR (signal-to-noise ratio) values.
+
+```bash
+# Traceroute by node ID
+meshtastic-cli traceroute --dest 04e1c43b
+
+# Traceroute by name
+meshtastic-cli traceroute --to Pedro
+
+# Custom timeout (default: 60s)
+meshtastic-cli traceroute --dest 04e1c43b --timeout 120
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Destination node ID in hex, `!` prefix optional (required unless `--to` is used) |
+| `--to` | Destination node name (required unless `--dest` is used) |
+| `--timeout` | Seconds to wait for response (default: 60) |
+
+Example output:
+
+```
+-> Tracing route to Pedro (!04e1c43b)...
+
+  1 !a1b2c3d4 (Local)
+  2 !e5f6a7b8 (Relay-1)     SNR: 6.0 dB
+  3 !04e1c43b (Pedro)        SNR: 8.5 dB
+
+ok Route to Pedro (!04e1c43b) completed in 4.2s (2 hops)
+```
+
+If a return path differs from the forward path, both are shown separately.
+
 ### `ping`
 
 Sends a ping to a specific node and measures the round-trip time by waiting for an ACK.
@@ -385,6 +422,7 @@ main.rs  (argument parsing + dispatch only)
               info.rs     (implements Command for device info display)
               ping.rs     (implements Command for node ping with ACK)
               config.rs   (implements Command for config get/set)
+              traceroute.rs (implements Command for route tracing)
 ```
 
 ### Key Patterns
@@ -468,7 +506,8 @@ meshtastic-cli/
         ├── listen.rs        # `listen` command implementation
         ├── info.rs          # `info` command implementation
         ├── ping.rs          # `ping` command implementation
-        └── config.rs        # `config get/set` command implementation
+        ├── config.rs        # `config get/set` command implementation
+        └── traceroute.rs    # `traceroute` command implementation
 ```
 
 ---
@@ -477,14 +516,53 @@ meshtastic-cli/
 
 The following commands are planned in priority order:
 
-| Command         | Description                                           | Status     |
-|-----------------|-------------------------------------------------------|------------|
-| `nodes`         | List all mesh nodes with device and signal info       | v0.1.0     |
-| `send <msg>`    | Send a text message to the mesh                       | v0.2.0     |
-| `listen`        | Stream all incoming packets to stdout in real time    | Done       |
-| `info`          | Show local node info: ID, firmware version, channels  | Done       |
-| `ping <node-id>`| Send a ping to a specific node and wait for ACK       | Done       |
-| `config get/set`| Read and write device/module configuration             | Done       |
+| Command | Description | Status |
+|---|---|---|
+| `nodes` | List all mesh nodes with device and signal info | v0.1.0 |
+| `send <msg>` | Send a text message to the mesh | v0.2.0 |
+| `listen` | Stream all incoming packets to stdout in real time | Done |
+| `info` | Show local node info: ID, firmware version, channels | Done |
+| `ping <node-id>` | Send a ping to a specific node and wait for ACK | Done |
+| `config get/set` | Read and write device/module configuration | Done |
+
+### Tier 1 — High Priority
+
+| Command | Description | Status |
+|---|---|---|
+| `traceroute` | Trace route to a node showing each hop with SNR | Done |
+| `channel add/del/set` | Add, delete, and configure channels | Planned |
+| `export-config` | Export full device config as YAML | Planned |
+| `import-config` | Import and apply config from a YAML file | Planned |
+| `reboot` | Reboot a node (local or remote) | Planned |
+| `shutdown` | Shut down a node (local or remote) | Planned |
+| `set-owner` | Set device long name and short name | Planned |
+
+### Tier 2 — Medium Priority
+
+| Command | Description | Status |
+|---|---|---|
+| `request-telemetry` | Request telemetry from a remote node | Planned |
+| `request-position` | Request position from a remote node | Planned |
+| `set-position` | Set fixed GPS position (lat, lon, alt) | Planned |
+| `factory-reset` | Restore default device configuration | Planned |
+| `reset-nodedb` | Clear the node's entire NodeDB | Planned |
+| `remove-node` | Remove a specific node from NodeDB | Planned |
+| `set-ham` | Set licensed Ham radio callsign | Planned |
+| `set-url` | Set channels and LoRa config from a meshtastic URL | Planned |
+
+### Tier 3 — Lower Priority
+
+| Command | Description | Status |
+|---|---|---|
+| `qr` | Show QR code for channel sharing | Planned |
+| `set-canned-message` | Set/get canned messages | Planned |
+| `set-ringtone` | Set/get notification ringtone | Planned |
+| `set-favorite-node` | Mark/unmark a node as favorite | Planned |
+| `set-ignored-node` | Mark/unmark a node as ignored | Planned |
+| `set-time` | Set node time via unix timestamp | Planned |
+| `device-metadata` | Retrieve metadata from a remote node | Planned |
+| `gpio` | Read/write/watch GPIO on remote nodes | Planned |
+| `reply` | Auto-reply to received messages with stats | Planned |
 
 ---
 

@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NodeDb::local_config()` and `NodeDb::local_module_config()` accessors
 - Enum-aware field parsing for config set (case-insensitive, supports both name and raw integer values)
 - `ConfigSection` enum with clap `ValueEnum` for tab-completable section names in `config get`
+- `traceroute` command to trace the route to a destination node, showing each hop with SNR values
+- Supports forward and return path display when paths differ
+- Uses `TRACEROUTE_APP` protocol with `RouteDiscovery` protobuf encoding
 
 ## [0.2.0] - 2026-02-20
 
