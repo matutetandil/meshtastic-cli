@@ -264,7 +264,9 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 field: field.clone(),
                 value: value.clone(),
             })),
-            ChannelAction::Qr => Ok(Box::new(channel::ChannelQrCommand)),
+            ChannelAction::Qr { output } => Ok(Box::new(channel::ChannelQrCommand {
+                output: output.clone(),
+            })),
         },
         Commands::Config { action } => match action {
             ConfigAction::Get { section } => Ok(Box::new(config::ConfigGetCommand {

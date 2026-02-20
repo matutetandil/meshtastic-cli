@@ -1,8 +1,12 @@
+use std::path::Path;
+
 use anyhow::bail;
 use async_trait::async_trait;
 use colored::Colorize;
+use image::Luma;
 use meshtastic::protobufs::{self, channel, ChannelSettings};
 use meshtastic::Message;
+use qrcode::render::svg;
 use qrcode::QrCode;
 
 use super::{Command, CommandContext};
@@ -223,7 +227,9 @@ impl Command for ChannelSetCommand {
 
 // ── ChannelQrCommand ──────────────────────────────────────────────
 
-pub struct ChannelQrCommand;
+pub struct ChannelQrCommand {
+    pub output: Option<String>,
+}
 
 #[async_trait]
 impl Command for ChannelQrCommand {
@@ -251,38 +257,32 @@ impl Command for ChannelQrCommand {
         let b64 = base64_url_encode(&encoded);
         let url = format!("https://meshtastic.org/e/#{}", b64);
 
-        match QrCode::new(url.as_bytes()) {
-            Ok(code) => {
-                let width = code.width();
-                let data = code.into_colors();
+        let code = QrCode::new(url.as_bytes())?;
 
-                // Top quiet zone
-                let line_width = width + 4; // 2 module quiet zone on each side
-                let empty_line: String =
-                    std::iter::repeat_n("\u{2588}\u{2588}", line_width).collect();
-                println!("{}", empty_line);
-                println!("{}", empty_line);
+        match &self.output {
+            Some(path) => {
+                let ext = Path::new(path)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
 
-                for y in 0..width {
-                    // Left quiet zone
-                    print!("\u{2588}\u{2588}\u{2588}\u{2588}");
-                    for x in 0..width {
-                        let idx = y * width + x;
-                        match data[idx] {
-                            qrcode::Color::Dark => print!("  "), // dark module
-                            qrcode::Color::Light => print!("\u{2588}\u{2588}"), // light module
-                        }
+                match ext.as_str() {
+                    "png" => {
+                        let img = code.render::<Luma<u8>>().min_dimensions(512, 512).build();
+                        img.save(path)?;
+                        println!("{} QR code saved to {}", "ok".green(), path.bold());
                     }
-                    // Right quiet zone
-                    println!("\u{2588}\u{2588}\u{2588}\u{2588}");
+                    "svg" => {
+                        let svg_xml = code.render::<svg::Color>().min_dimensions(256, 256).build();
+                        std::fs::write(path, svg_xml)?;
+                        println!("{} QR code saved to {}", "ok".green(), path.bold());
+                    }
+                    _ => bail!("Unsupported format '.{}'. Use .png or .svg", ext),
                 }
-
-                // Bottom quiet zone
-                println!("{}", empty_line);
-                println!("{}", empty_line);
             }
-            Err(e) => {
-                println!("{} Failed to generate QR code: {}", "x".red(), e);
+            None => {
+                render_terminal_qr(&code);
             }
         }
 
@@ -291,6 +291,35 @@ impl Command for ChannelQrCommand {
 
         Ok(())
     }
+}
+
+fn render_terminal_qr(code: &QrCode) {
+    let width = code.width();
+    let data = code.to_colors();
+
+    // Top quiet zone
+    let line_width = width + 4; // 2 module quiet zone on each side
+    let empty_line: String = std::iter::repeat_n("\u{2588}\u{2588}", line_width).collect();
+    println!("{}", empty_line);
+    println!("{}", empty_line);
+
+    for y in 0..width {
+        // Left quiet zone
+        print!("\u{2588}\u{2588}\u{2588}\u{2588}");
+        for x in 0..width {
+            let idx = y * width + x;
+            match data[idx] {
+                qrcode::Color::Dark => print!("  "), // dark module
+                qrcode::Color::Light => print!("\u{2588}\u{2588}"), // light module
+            }
+        }
+        // Right quiet zone
+        println!("\u{2588}\u{2588}\u{2588}\u{2588}");
+    }
+
+    // Bottom quiet zone
+    println!("{}", empty_line);
+    println!("{}", empty_line);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────

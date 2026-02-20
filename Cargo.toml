@@ -19,3 +19,4 @@ env_logger = "0.11"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 qrcode = "0.14"
+image = "0.25"

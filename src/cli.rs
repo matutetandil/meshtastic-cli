@@ -382,7 +382,11 @@ pub enum ChannelAction {
     /// List all channels (same as info, but channel-focused)
     List,
     /// Generate a QR code for sharing channels
-    Qr,
+    Qr {
+        /// Output file path (.png or .svg). Prints to terminal if omitted.
+        #[arg(long)]
+        output: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, ValueEnum)]

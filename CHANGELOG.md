@@ -60,7 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `device set-ringtone` command to set the device ringtone using RTTTL format
 - `request metadata` command to request device metadata (firmware version, hardware model, and capabilities) from a remote node
 - `channel qr` command to generate a QR code and shareable URL for the current channel configuration
-- `qrcode` dependency for terminal QR code generation
+- `channel qr --output` flag to export QR code as PNG or SVG image file
+- `qrcode` dependency for QR code generation (terminal, PNG, SVG)
+- `image` dependency for PNG image rendering
 
 ## [0.2.0] - 2026-02-20
 

@@ -672,20 +672,37 @@ meshtastic-cli channel set 0 position_precision 14
 
 #### `channel qr`
 
-Generate a QR code and shareable meshtastic:// URL for the current channel configuration. The QR code is printed directly to the terminal using Unicode block characters and can be scanned by the Meshtastic mobile app.
+Generate a QR code and shareable meshtastic:// URL for the current channel configuration. By default the QR code is printed directly to the terminal using Unicode block characters. Use `--output` to save as a PNG or SVG image file.
 
 ```bash
+# Print QR code to terminal (default)
 meshtastic-cli channel qr
+
+# Export as PNG image (512x512 minimum)
+meshtastic-cli channel qr --output channels.png
+
+# Export as SVG image
+meshtastic-cli channel qr --output channels.svg
 ```
 
-Example output:
+| Option | Description |
+|---|---|
+| `--output` | File path for image export. Supports `.png` and `.svg` formats. Prints to terminal if omitted |
+
+Example output (terminal):
 
 ```
-Channel URL:
-  https://meshtastic.org/e/#ENCODED...
+[block character QR code rendered in terminal]
 
-QR Code:
-  [block character QR code rendered in terminal]
+URL: https://meshtastic.org/e/#ENCODED...
+```
+
+Example output (file export):
+
+```
+ok QR code saved to channels.png
+
+URL: https://meshtastic.org/e/#ENCODED...
 ```
 
 #### `config export`
@@ -1002,7 +1019,8 @@ main.rs  (argument parsing + dispatch only)
 | Serial I/O      | tokio-serial           | Async serial port support                           |
 | Terminal output | colored                | Readable, colored CLI output                        |
 | Serialization   | serde / serde_yaml     | YAML config export and import                       |
-| QR codes        | qrcode                 | Terminal QR code generation for channel sharing     |
+| QR codes        | qrcode                 | QR code generation for terminal, PNG, and SVG       |
+| Image output    | image                  | PNG image rendering for QR code export              |
 
 > Note: The `meshtastic` crate (v0.1.8) is early-stage. When something appears underdocumented, refer to the source: https://github.com/meshtastic/rust
 
