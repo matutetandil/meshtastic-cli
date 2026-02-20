@@ -62,6 +62,12 @@ pub enum Commands {
         action: ConfigAction,
     },
 
+    /// Manage channels (add, delete, set properties)
+    Channel {
+        #[command(subcommand)]
+        action: ChannelAction,
+    },
+
     /// Trace route to a node, showing each hop with SNR
     Traceroute {
         /// Destination node ID in hex (e.g. 04e1c43b or '!04e1c43b')
@@ -107,6 +113,35 @@ pub enum ConfigAction {
         /// New value to set
         value: String,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ChannelAction {
+    /// Add a new secondary channel
+    Add {
+        /// Channel name (up to 11 characters)
+        name: String,
+
+        /// Pre-shared key: "none", "default", "random", or a hex-encoded key (32 or 64 hex chars for AES-128/256)
+        #[arg(long, default_value = "default")]
+        psk: String,
+    },
+    /// Delete a channel by index
+    Del {
+        /// Channel index to delete (1-7, cannot delete primary channel 0)
+        index: u32,
+    },
+    /// Set a channel property
+    Set {
+        /// Channel index (0-7)
+        index: u32,
+        /// Field name to set (name, psk, uplink_enabled, downlink_enabled, position_precision)
+        field: String,
+        /// New value
+        value: String,
+    },
+    /// List all channels (same as info, but channel-focused)
+    List,
 }
 
 #[derive(Debug, Clone, ValueEnum)]

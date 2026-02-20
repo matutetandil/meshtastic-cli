@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `traceroute` command to trace the route to a destination node, showing each hop with SNR values
 - Supports forward and return path display when paths differ
 - Uses `TRACEROUTE_APP` protocol with `RouteDiscovery` protobuf encoding
+- `channel list` command to display all channels with role, encryption type, and uplink/downlink status
+- `channel add` command to add a secondary channel with configurable PSK (none, default, random, or hex key)
+- `channel del` command to delete a channel by index (protects primary channel 0)
+- `channel set` command to modify channel properties (name, psk, uplink_enabled, downlink_enabled, position_precision)
 
 ## [0.2.0] - 2026-02-20
 

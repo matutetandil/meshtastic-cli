@@ -30,6 +30,7 @@
 - `config get` command: display all or individual device/module configuration sections
 - `config set` command: modify any configuration field with automatic device reboot
 - `traceroute` command: trace route to a node showing each hop with SNR values
+- `channel` command: add, delete, list, and set properties on channels (name, PSK, uplink/downlink)
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -111,6 +112,7 @@ Commands:
   listen   Stream incoming packets in real time
   info     Show local node and device information
   config      Get or set device configuration
+  channel     Manage channels (add, delete, set, list)
   traceroute  Trace route to a node showing each hop
   ping        Ping a node and measure round-trip time
 ```
@@ -330,6 +332,86 @@ Example output:
 ok Configuration updated.
 ```
 
+### `channel`
+
+Manage device channels: list, add, delete, and modify properties.
+
+#### `channel list`
+
+List all configured channels with their role, encryption, and uplink/downlink status.
+
+```bash
+meshtastic-cli channel list
+```
+
+Example output:
+
+```
+Channels
+  [0]    Default        Primary      Default key  uplink: false downlink: false
+  [1]    Team           Secondary    AES-256      uplink: false downlink: false
+```
+
+#### `channel add`
+
+Add a new secondary channel. The channel is placed in the first available slot (indices 1-7).
+
+```bash
+# Add with default encryption key
+meshtastic-cli channel add "Team"
+
+# Add with a random AES-256 key
+meshtastic-cli channel add "Secure" --psk random
+
+# Add with no encryption
+meshtastic-cli channel add "Open" --psk none
+
+# Add with a specific AES-128 key (32 hex characters)
+meshtastic-cli channel add "Custom" --psk d4f1bb3a2029075960bcffabcf4e6901
+```
+
+| Option | Description |
+|---|---|
+| `<NAME>` | Channel name, up to 11 characters (required) |
+| `--psk` | Pre-shared key: `none`, `default`, `random`, or hex-encoded key (default: `default`) |
+
+#### `channel del`
+
+Delete a channel by index. Cannot delete the primary channel (index 0).
+
+```bash
+meshtastic-cli channel del 1
+```
+
+#### `channel set`
+
+Set a property on a specific channel.
+
+```bash
+# Rename a channel
+meshtastic-cli channel set 1 name "NewName"
+
+# Change encryption key
+meshtastic-cli channel set 1 psk random
+
+# Enable MQTT uplink
+meshtastic-cli channel set 1 uplink_enabled true
+
+# Enable MQTT downlink
+meshtastic-cli channel set 1 downlink_enabled true
+
+# Set position precision
+meshtastic-cli channel set 0 position_precision 14
+```
+
+| Field | Description |
+|---|---|
+| `name` | Channel name (up to 11 characters) |
+| `psk` | Pre-shared key (`none`, `default`, `random`, or hex) |
+| `uplink_enabled` | Forward mesh messages to MQTT |
+| `downlink_enabled` | Forward MQTT messages to mesh |
+| `position_precision` | Bits of precision for position data |
+
 ### `traceroute`
 
 Traces the route to a destination node, showing each hop along the path with SNR (signal-to-noise ratio) values.
@@ -422,6 +504,7 @@ main.rs  (argument parsing + dispatch only)
               info.rs     (implements Command for device info display)
               ping.rs     (implements Command for node ping with ACK)
               config.rs   (implements Command for config get/set)
+              channel.rs  (implements Command for channel management)
               traceroute.rs (implements Command for route tracing)
 ```
 
@@ -507,7 +590,8 @@ meshtastic-cli/
         ├── info.rs          # `info` command implementation
         ├── ping.rs          # `ping` command implementation
         ├── config.rs        # `config get/set` command implementation
-        └── traceroute.rs    # `traceroute` command implementation
+        ├── traceroute.rs    # `traceroute` command implementation
+        └── channel.rs       # `channel` command implementation
 ```
 
 ---
@@ -530,7 +614,7 @@ The following commands are planned in priority order:
 | Command | Description | Status |
 |---|---|---|
 | `traceroute` | Trace route to a node showing each hop with SNR | Done |
-| `channel add/del/set` | Add, delete, and configure channels | Planned |
+| `channel add/del/set` | Add, delete, and configure channels | Done |
 | `export-config` | Export full device config as YAML | Planned |
 | `import-config` | Import and apply config from a YAML file | Planned |
 | `reboot` | Reboot a node (local or remote) | Planned |
