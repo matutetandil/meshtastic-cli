@@ -223,6 +223,49 @@ impl Command for RemoveIgnoredCommand {
     }
 }
 
+// ── SetUnmessageableCommand ──────────────────────────────────────
+
+pub struct SetUnmessageableCommand {
+    pub value: bool,
+}
+
+#[async_trait]
+impl Command for SetUnmessageableCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let existing_user = ctx
+            .node_db
+            .local_node()
+            .and_then(|n| n.user.clone())
+            .unwrap_or_default();
+
+        let label = if self.value {
+            "unmessageable"
+        } else {
+            "messageable"
+        };
+
+        println!("{} Setting node as {}...", "->".cyan(), label);
+
+        let new_user = protobufs::User {
+            id: existing_user.id,
+            long_name: existing_user.long_name,
+            short_name: existing_user.short_name,
+            hw_model: existing_user.hw_model,
+            is_licensed: existing_user.is_licensed,
+            role: existing_user.role,
+            public_key: existing_user.public_key,
+            is_unmessagable: Some(self.value),
+            ..Default::default()
+        };
+
+        ctx.api.update_user(&mut ctx.router, new_user).await?;
+
+        println!("{} Node marked as {}.", "ok".green(), label);
+
+        Ok(())
+    }
+}
+
 // ── Helpers ──────────────────────────────────────────────────────
 
 fn resolve_node_num(destination: &DestinationSpec, ctx: &CommandContext) -> anyhow::Result<u32> {

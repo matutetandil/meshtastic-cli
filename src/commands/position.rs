@@ -1,8 +1,47 @@
+use anyhow::bail;
 use async_trait::async_trait;
 use colored::Colorize;
 use meshtastic::protobufs::{self, admin_message};
 
 use super::{Command, CommandContext};
+
+/// Parse position flags from either a numeric bitmask or comma-separated flag names.
+pub fn parse_position_flags(input: &str) -> anyhow::Result<u32> {
+    // Try numeric first (decimal or 0x hex)
+    if let Some(hex) = input
+        .strip_prefix("0x")
+        .or_else(|| input.strip_prefix("0X"))
+    {
+        return u32::from_str_radix(hex, 16)
+            .map_err(|_| anyhow::anyhow!("Invalid hex flags: '{}'", input));
+    }
+    if let Ok(n) = input.parse::<u32>() {
+        return Ok(n);
+    }
+
+    // Parse as comma-separated flag names
+    let mut flags: u32 = 0;
+    for name in input.split(',') {
+        let flag = match name.trim().to_uppercase().as_str() {
+            "ALTITUDE" => 1,
+            "ALTITUDE_MSL" => 2,
+            "GEOIDAL_SEPARATION" => 4,
+            "DOP" => 8,
+            "HVDOP" => 16,
+            "SATINVIEW" => 32,
+            "SEQ_NO" => 64,
+            "TIMESTAMP" => 128,
+            "HEADING" => 256,
+            "SPEED" => 512,
+            other => bail!(
+                "Unknown position flag '{}'. Valid flags: ALTITUDE, ALTITUDE_MSL, GEOIDAL_SEPARATION, DOP, HVDOP, SATINVIEW, SEQ_NO, TIMESTAMP, HEADING, SPEED",
+                other
+            ),
+        };
+        flags |= flag;
+    }
+    Ok(flags)
+}
 
 // ── PositionRemoveCommand ────────────────────────────────────────
 

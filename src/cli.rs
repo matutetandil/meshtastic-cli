@@ -277,6 +277,12 @@ pub enum NodeAction {
         #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
         to: Option<String>,
     },
+    /// Set the node as unmessageable (prevents others from messaging it)
+    SetUnmessageable {
+        /// true to mark as unmessageable, false to mark as messageable
+        #[arg(action = clap::ArgAction::Set, value_parser = clap::builder::BoolishValueParser::new(), default_value_t = true)]
+        value: bool,
+    },
     /// Remove a node from the ignored list
     RemoveIgnored {
         /// Node ID in hex (e.g. 04e1c43b)
@@ -383,9 +389,10 @@ pub enum PositionAction {
         /// Altitude in meters above sea level
         #[arg(default_value_t = 0)]
         alt: i32,
-        /// Position broadcast field flags (bitmask)
+        /// Position broadcast field flags. Accepts a numeric bitmask or comma-separated names:
+        /// ALTITUDE, ALTITUDE_MSL, GEOIDAL_SEPARATION, DOP, HVDOP, SATINVIEW, SEQ_NO, TIMESTAMP, HEADING, SPEED
         #[arg(long)]
-        flags: Option<u32>,
+        flags: Option<String>,
     },
     /// Remove the fixed GPS position (re-enables GPS)
     Remove,
@@ -406,6 +413,10 @@ pub enum RequestAction {
         /// Timeout in seconds
         #[arg(long, default_value_t = 30)]
         timeout: u64,
+
+        /// Type of telemetry to request
+        #[arg(long, value_enum, default_value_t = TelemetryTypeArg::Device)]
+        r#type: TelemetryTypeArg,
     },
     /// Request position from a remote node
     Position {
@@ -541,6 +552,17 @@ pub enum ModemPresetArg {
     ShortFast,
     LongModerate,
     ShortTurbo,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum TelemetryTypeArg {
+    Device,
+    Environment,
+    AirQuality,
+    Power,
+    LocalStats,
+    Health,
+    Host,
 }
 
 #[derive(Debug, Clone, ValueEnum)]

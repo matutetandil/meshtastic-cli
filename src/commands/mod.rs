@@ -24,7 +24,7 @@ use meshtastic::types::{MeshChannel, NodeId};
 
 use crate::cli::{
     ChannelAction, Commands, ConfigAction, DeviceAction, GpioAction, ModemPresetArg, NodeAction,
-    PositionAction, RequestAction,
+    PositionAction, RequestAction, TelemetryTypeArg,
 };
 use crate::error::CliError;
 use crate::node_db::NodeDb;
@@ -240,6 +240,9 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 let destination = parse_dest_spec(dest, to)?;
                 Ok(Box::new(node::SetIgnoredCommand { destination }))
             }
+            NodeAction::SetUnmessageable { value } => {
+                Ok(Box::new(node::SetUnmessageableCommand { value: *value }))
+            }
             NodeAction::RemoveIgnored { dest, to } => {
                 let destination = parse_dest_spec(dest, to)?;
                 Ok(Box::new(node::RemoveIgnoredCommand { destination }))
@@ -252,20 +255,42 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 lon,
                 alt,
                 flags,
-            } => Ok(Box::new(position::PositionSetCommand {
-                latitude: *lat,
-                longitude: *lon,
-                altitude: *alt,
-                flags: *flags,
-            })),
+            } => {
+                let parsed_flags = flags
+                    .as_ref()
+                    .map(|f| position::parse_position_flags(f))
+                    .transpose()
+                    .map_err(|e| CliError::InvalidArgument(e.to_string()))?;
+                Ok(Box::new(position::PositionSetCommand {
+                    latitude: *lat,
+                    longitude: *lon,
+                    altitude: *alt,
+                    flags: parsed_flags,
+                }))
+            }
             PositionAction::Remove => Ok(Box::new(position::PositionRemoveCommand)),
         },
         Commands::Request { action } => match action {
-            RequestAction::Telemetry { dest, to, timeout } => {
+            RequestAction::Telemetry {
+                dest,
+                to,
+                timeout,
+                r#type,
+            } => {
                 let destination = parse_dest_spec(dest, to)?;
+                let telem_type = match r#type {
+                    TelemetryTypeArg::Device => request::TelemetryType::Device,
+                    TelemetryTypeArg::Environment => request::TelemetryType::Environment,
+                    TelemetryTypeArg::AirQuality => request::TelemetryType::AirQuality,
+                    TelemetryTypeArg::Power => request::TelemetryType::Power,
+                    TelemetryTypeArg::LocalStats => request::TelemetryType::LocalStats,
+                    TelemetryTypeArg::Health => request::TelemetryType::Health,
+                    TelemetryTypeArg::Host => request::TelemetryType::Host,
+                };
                 Ok(Box::new(request::RequestTelemetryCommand {
                     destination,
                     timeout_secs: *timeout,
+                    telemetry_type: telem_type,
                 }))
             }
             RequestAction::Position { dest, to, timeout } => {

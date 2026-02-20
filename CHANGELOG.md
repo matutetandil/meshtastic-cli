@@ -84,8 +84,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--ble <name|mac>` global connection option for BLE connectivity to Meshtastic devices (requires `--features ble` build flag)
 - `--ble-scan` global flag to scan for nearby BLE Meshtastic devices
 - `--no-nodes` global flag to skip node collection during connection for faster startup on commands that do not require the node database
-- `position set --flags` option to set position broadcast field flags when configuring a fixed position
+- `position set --flags` option to set position broadcast field flags when configuring a fixed position; now accepts comma-separated flag names (ALTITUDE, ALTITUDE_MSL, GEOIDAL_SEPARATION, DOP, HVDOP, SATINVIEW, SEQ_NO, TIMESTAMP, HEADING, SPEED) in addition to numeric bitmask
 - `ble` feature flag in `Cargo.toml` with conditional compilation for BLE support via `meshtastic/bluetooth-le`
+- `request telemetry --type` flag to select telemetry variant: device (default), environment, air-quality, power, local-stats, health, host
+- Full telemetry display for all 7 variants: AirQualityMetrics (PM1.0/2.5/10.0, CO2, VOC, NOx), LocalStats (uptime, utilization, packets), HealthMetrics (heart rate, SpO2), HostMetrics (memory, disk, load average), extended PowerMetrics (ch2/ch3 voltage/current)
+- `node set-unmessageable` command to mark the local node as unmessageable or restore it as messageable
 
 ## [0.2.0] - 2026-02-20
 

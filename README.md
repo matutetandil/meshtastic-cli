@@ -57,10 +57,11 @@
 - `node set-ignored` command: mark a node as ignored
 - `node remove-ignored` command: remove a node from the ignored list
 - `node remove` command: remove a specific node from the local NodeDB
+- `node set-unmessageable` command: mark the local node as unmessageable (prevents others from messaging it)
 - `position get` command: display current GPS position
-- `position set` command: set a fixed GPS position (latitude, longitude, altitude, optional broadcast flags)
+- `position set` command: set a fixed GPS position (latitude, longitude, altitude, optional named broadcast flags)
 - `position remove` command: clear the fixed GPS position and return to GPS-based positioning
-- `request telemetry` command: request telemetry from a remote node
+- `request telemetry` command: request telemetry from a remote node with `--type` selection (device, environment, air-quality, power, local-stats, health, host)
 - `request position` command: request position from a remote node
 - `request metadata` command: request device metadata from a remote node
 - `config set-ham` command: configure licensed Ham radio mode with callsign
@@ -644,6 +645,25 @@ meshtastic-cli node remove-ignored --to Pedro
 | `--dest` | Node ID in hex (required unless `--to` is used) |
 | `--to` | Node name (required unless `--dest` is used) |
 
+#### `node set-unmessageable`
+
+Mark the local node as unmessageable (prevents others from sending direct messages to it) or restore it as messageable.
+
+```bash
+# Mark as unmessageable (default)
+meshtastic-cli node set-unmessageable
+
+# Explicitly mark as unmessageable
+meshtastic-cli node set-unmessageable true
+
+# Restore as messageable
+meshtastic-cli node set-unmessageable false
+```
+
+| Option | Description |
+|---|---|
+| `[VALUE]` | `true` to mark as unmessageable, `false` to mark as messageable (default: `true`) |
+
 ### `device`
 
 Device management commands: reboot, reboot-ota, enter-dfu, shutdown, factory reset variants, reset-nodedb, set-time, canned messages, and ringtone. Reboot and shutdown support targeting the local device (default) or a remote node.
@@ -1160,8 +1180,14 @@ meshtastic-cli position set 40.4168 -3.7038
 # Set position with altitude (in meters)
 meshtastic-cli position set 40.4168 -3.7038 650
 
-# Set position with broadcast field flags (controls which fields are included in position packets)
-meshtastic-cli position set 40.4168 -3.7038 650 --flags 811
+# Set position with named broadcast flags
+meshtastic-cli position set 40.4168 -3.7038 650 --flags "ALTITUDE,TIMESTAMP,SPEED"
+
+# Set position with numeric bitmask (equivalent to above: 1 + 128 + 512 = 641)
+meshtastic-cli position set 40.4168 -3.7038 650 --flags 641
+
+# Set position with hex bitmask
+meshtastic-cli position set 40.4168 -3.7038 650 --flags 0x281
 ```
 
 | Option | Description |
@@ -1169,7 +1195,7 @@ meshtastic-cli position set 40.4168 -3.7038 650 --flags 811
 | `<LATITUDE>` | Latitude in decimal degrees (required) |
 | `<LONGITUDE>` | Longitude in decimal degrees (required) |
 | `<ALTITUDE>` | Altitude in meters (optional) |
-| `--flags` | Position broadcast field flags as a u32 bitmask (optional). Controls which fields are included in outgoing position packets. |
+| `--flags` | Position broadcast field flags (optional). Accepts comma-separated names (`ALTITUDE`, `ALTITUDE_MSL`, `GEOIDAL_SEPARATION`, `DOP`, `HVDOP`, `SATINVIEW`, `SEQ_NO`, `TIMESTAMP`, `HEADING`, `SPEED`) or a numeric bitmask (decimal or `0x` hex). |
 
 #### `position remove`
 
@@ -1185,20 +1211,37 @@ Request data from remote nodes.
 
 #### `request telemetry`
 
-Request telemetry data (battery, voltage, channel utilization, etc.) from a remote node.
+Request telemetry data from a remote node. Use `--type` to select a specific telemetry variant (default: device).
 
 ```bash
-# Request by node ID
+# Request device telemetry (battery, voltage, channel utilization)
 meshtastic-cli request telemetry --dest 04e1c43b
 
-# Request by name
-meshtastic-cli request telemetry --to Pedro
+# Request environment telemetry (temperature, humidity, pressure)
+meshtastic-cli request telemetry --to Pedro --type environment
+
+# Request air quality metrics (PM1.0, PM2.5, PM10.0, CO2, VOC)
+meshtastic-cli request telemetry --dest 04e1c43b --type air-quality
+
+# Request power metrics (voltage/current per channel)
+meshtastic-cli request telemetry --dest 04e1c43b --type power
+
+# Request local stats (uptime, packets tx/rx, air utilization)
+meshtastic-cli request telemetry --dest 04e1c43b --type local-stats
+
+# Request health metrics (heart rate, SpO2)
+meshtastic-cli request telemetry --dest 04e1c43b --type health
+
+# Request host metrics (free memory, disk, load average)
+meshtastic-cli request telemetry --dest 04e1c43b --type host
 ```
 
 | Option | Description |
 |---|---|
 | `--dest` | Target node ID in hex (required unless `--to` is used) |
 | `--to` | Target node name (required unless `--dest` is used) |
+| `--type` | Telemetry type: `device`, `environment`, `air-quality`, `power`, `local-stats`, `health`, `host` (default: `device`) |
+| `--timeout` | Timeout in seconds (default: 30) |
 
 #### `request position`
 
@@ -1538,6 +1581,9 @@ meshtastic-cli/
 | `device reboot-ota` | Reboot into OTA firmware update mode (ESP32) | Done |
 | `device enter-dfu` | Enter DFU mode (NRF52 devices) | Done |
 | `device factory-reset-device` | Full factory reset including BLE bond wipe | Done |
+| `request telemetry --type` | Select telemetry variant (device, environment, air-quality, power, local-stats, health, host) | Done |
+| `node set-unmessageable` | Mark local node as unmessageable/messageable | Done |
+| Named position flags | Accept flag names (ALTITUDE, TIMESTAMP, etc.) in addition to numeric bitmask | Done |
 
 ---
 

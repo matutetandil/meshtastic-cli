@@ -14,11 +14,24 @@ use meshtastic::Message;
 
 use super::{resolve_destination, Command, CommandContext, DestinationSpec};
 
+// ── Telemetry type selection ──────────────────────────────────────
+
+pub enum TelemetryType {
+    Device,
+    Environment,
+    AirQuality,
+    Power,
+    LocalStats,
+    Health,
+    Host,
+}
+
 // ── RequestTelemetryCommand ───────────────────────────────────────
 
 pub struct RequestTelemetryCommand {
     pub destination: DestinationSpec,
     pub timeout_secs: u64,
+    pub telemetry_type: TelemetryType,
 }
 
 #[async_trait]
@@ -34,10 +47,21 @@ impl Command for RequestTelemetryCommand {
         let packet_id = generate_rand_id();
         let my_node = ctx.node_db.my_node_num();
 
-        let telemetry = Telemetry {
-            time: 0,
-            variant: None,
+        let variant = match self.telemetry_type {
+            TelemetryType::Device => Some(telemetry::Variant::DeviceMetrics(Default::default())),
+            TelemetryType::Environment => {
+                Some(telemetry::Variant::EnvironmentMetrics(Default::default()))
+            }
+            TelemetryType::AirQuality => {
+                Some(telemetry::Variant::AirQualityMetrics(Default::default()))
+            }
+            TelemetryType::Power => Some(telemetry::Variant::PowerMetrics(Default::default())),
+            TelemetryType::LocalStats => Some(telemetry::Variant::LocalStats(Default::default())),
+            TelemetryType::Health => Some(telemetry::Variant::HealthMetrics(Default::default())),
+            TelemetryType::Host => Some(telemetry::Variant::HostMetrics(Default::default())),
         };
+
+        let telemetry = Telemetry { time: 0, variant };
 
         let mesh_packet = MeshPacket {
             from: my_node,
@@ -407,12 +431,139 @@ fn print_telemetry(telem: &Telemetry) {
                     println!("    {:<24} {:.1} mA", "ch1_current:".dimmed(), c);
                 }
             }
+            if let Some(v) = m.ch2_voltage {
+                if v > 0.0 {
+                    println!("    {:<24} {:.2}V", "ch2_voltage:".dimmed(), v);
+                }
+            }
+            if let Some(c) = m.ch2_current {
+                if c > 0.0 {
+                    println!("    {:<24} {:.1} mA", "ch2_current:".dimmed(), c);
+                }
+            }
+            if let Some(v) = m.ch3_voltage {
+                if v > 0.0 {
+                    println!("    {:<24} {:.2}V", "ch3_voltage:".dimmed(), v);
+                }
+            }
+            if let Some(c) = m.ch3_current {
+                if c > 0.0 {
+                    println!("    {:<24} {:.1} mA", "ch3_current:".dimmed(), c);
+                }
+            }
+        }
+        Some(telemetry::Variant::AirQualityMetrics(m)) => {
+            println!("  {}", "Air Quality Metrics".bold());
+            if let Some(v) = m.pm10_standard {
+                println!("    {:<24} {} ug/m3", "pm1.0:".dimmed(), v);
+            }
+            if let Some(v) = m.pm25_standard {
+                println!("    {:<24} {} ug/m3", "pm2.5:".dimmed(), v);
+            }
+            if let Some(v) = m.pm100_standard {
+                println!("    {:<24} {} ug/m3", "pm10.0:".dimmed(), v);
+            }
+            if let Some(v) = m.co2 {
+                println!("    {:<24} {} ppm", "co2:".dimmed(), v);
+            }
+            if let Some(v) = m.pm_voc_idx {
+                if v > 0.0 {
+                    println!("    {:<24} {:.1}", "voc_index:".dimmed(), v);
+                }
+            }
+            if let Some(v) = m.pm_nox_idx {
+                if v > 0.0 {
+                    println!("    {:<24} {:.1}", "nox_index:".dimmed(), v);
+                }
+            }
+        }
+        Some(telemetry::Variant::LocalStats(m)) => {
+            println!("  {}", "Local Stats".bold());
+            if m.uptime_seconds > 0 {
+                println!(
+                    "    {:<24} {}",
+                    "uptime:".dimmed(),
+                    format_uptime(m.uptime_seconds)
+                );
+            }
+            println!(
+                "    {:<24} {:.1}%",
+                "channel_utilization:".dimmed(),
+                m.channel_utilization
+            );
+            println!("    {:<24} {:.1}%", "air_util_tx:".dimmed(), m.air_util_tx);
+            println!("    {:<24} {}", "packets_tx:".dimmed(), m.num_packets_tx);
+            println!("    {:<24} {}", "packets_rx:".dimmed(), m.num_packets_rx);
+            println!(
+                "    {:<24} {}",
+                "packets_rx_bad:".dimmed(),
+                m.num_packets_rx_bad
+            );
+            println!("    {:<24} {}", "rx_duplicates:".dimmed(), m.num_rx_dupe);
+            println!("    {:<24} {}", "tx_relayed:".dimmed(), m.num_tx_relay);
+            println!(
+                "    {:<24} {}",
+                "online_nodes:".dimmed(),
+                m.num_online_nodes
+            );
+            println!("    {:<24} {}", "total_nodes:".dimmed(), m.num_total_nodes);
+        }
+        Some(telemetry::Variant::HealthMetrics(m)) => {
+            println!("  {}", "Health Metrics".bold());
+            if let Some(v) = m.heart_bpm {
+                println!("    {:<24} {} bpm", "heart_rate:".dimmed(), v);
+            }
+            if let Some(v) = m.sp_o2 {
+                println!("    {:<24} {}%", "spo2:".dimmed(), v);
+            }
+        }
+        Some(telemetry::Variant::HostMetrics(m)) => {
+            println!("  {}", "Host Metrics".bold());
+            if m.uptime_seconds > 0 {
+                println!(
+                    "    {:<24} {}",
+                    "uptime:".dimmed(),
+                    format_uptime(m.uptime_seconds)
+                );
+            }
+            if m.freemem_bytes > 0 {
+                println!(
+                    "    {:<24} {} bytes",
+                    "free_memory:".dimmed(),
+                    m.freemem_bytes
+                );
+            }
+            if m.diskfree1_bytes > 0 {
+                println!(
+                    "    {:<24} {} bytes",
+                    "disk_free:".dimmed(),
+                    m.diskfree1_bytes
+                );
+            }
+            if m.load1 > 0 {
+                println!(
+                    "    {:<24} {:.2}",
+                    "load_1m:".dimmed(),
+                    m.load1 as f64 / 100.0
+                );
+            }
+            if m.load5 > 0 {
+                println!(
+                    "    {:<24} {:.2}",
+                    "load_5m:".dimmed(),
+                    m.load5 as f64 / 100.0
+                );
+            }
+            if m.load15 > 0 {
+                println!(
+                    "    {:<24} {:.2}",
+                    "load_15m:".dimmed(),
+                    m.load15 as f64 / 100.0
+                );
+            }
         }
         None => {
             println!("  {}", "(empty telemetry response)".dimmed());
-        }
-        _ => {
-            println!("  (other telemetry variant)");
         }
     }
 }
