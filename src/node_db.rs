@@ -69,4 +69,17 @@ impl NodeDb {
     pub fn nodes(&self) -> &HashMap<u32, protobufs::NodeInfo> {
         &self.nodes
     }
+
+    pub fn find_by_name(&self, name: &str) -> Vec<(u32, &protobufs::NodeInfo)> {
+        let query = name.to_lowercase();
+        self.nodes
+            .iter()
+            .filter(|(_, node)| {
+                node.user
+                    .as_ref()
+                    .is_some_and(|u| u.long_name.to_lowercase() == query)
+            })
+            .map(|(&num, node)| (num, node))
+            .collect()
+    }
 }

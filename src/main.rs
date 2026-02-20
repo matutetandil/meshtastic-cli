@@ -27,7 +27,7 @@ async fn main() -> anyhow::Result<()> {
         router,
     };
 
-    let command = create_command(&cli.command);
+    let command = create_command(&cli.command)?;
     command.execute(ctx).await?;
 
     Ok(())

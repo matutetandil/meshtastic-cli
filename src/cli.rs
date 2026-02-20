@@ -31,4 +31,22 @@ pub struct ConnectionArgs {
 pub enum Commands {
     /// List all nodes in the mesh network
     Nodes,
+
+    /// Send a text message to the mesh network
+    Send {
+        /// The message text to send
+        message: String,
+
+        /// Destination node ID in hex (e.g. !abcd1234). Omit to broadcast.
+        #[arg(long, conflicts_with = "to")]
+        dest: Option<String>,
+
+        /// Destination node name (e.g. Pedro). Searches known nodes by name.
+        #[arg(long, conflicts_with = "dest")]
+        to: Option<String>,
+
+        /// Channel index (0-7)
+        #[arg(long, default_value_t = 0)]
+        channel: u32,
+    },
 }

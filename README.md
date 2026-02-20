@@ -18,11 +18,12 @@
 
 ---
 
-## Features (v0.1.0)
+## Features (v0.2.0)
 
 - TCP connectivity to local simulators or remote devices
 - Serial connectivity to physical Meshtastic hardware
 - `nodes` command: list all mesh nodes with ID, name, battery level, SNR, hop count, and last-heard timestamp
+- `send` command: send text messages to the mesh (broadcast, by node ID, by node name, or on a specific channel)
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -100,6 +101,7 @@ Options:
 
 Commands:
   nodes    List all nodes visible on the mesh
+  send     Send a text message to the mesh network
 ```
 
 ### Connection examples
@@ -138,6 +140,34 @@ Output columns:
 | Hops        | Number of hops from the local node           |
 | Last Heard  | Timestamp of the most recent packet received |
 
+### `send`
+
+Sends a text message to the mesh network. By default the message is broadcast to all nodes.
+
+```bash
+# Broadcast a message to all nodes
+meshtastic-cli send "hello mesh"
+
+# Send to a specific node by hex ID
+meshtastic-cli send "hello node" --dest !abcd1234
+
+# Send to a node by name (searches known nodes, case-insensitive)
+meshtastic-cli send "hello!" --to Pedro
+
+# Send on a specific channel (0-7)
+meshtastic-cli send "hello channel" --channel 1
+
+# Combine destination and channel
+meshtastic-cli send "direct message" --dest !abcd1234 --channel 2
+```
+
+| Option      | Description                                            |
+|-------------|--------------------------------------------------------|
+| `<MESSAGE>` | The text message to send (required, positional)        |
+| `--dest`    | Destination node ID in hex (e.g. `!abcd1234`). Cannot be combined with `--to`. |
+| `--to`      | Destination node name (e.g. `Pedro`). Searches known nodes by name (case-insensitive). If multiple nodes match, shows the list and asks you to use `--dest` instead. Cannot be combined with `--dest`. |
+| `--channel` | Channel index 0-7 (default: 0)                        |
+
 ---
 
 ## Architecture
@@ -155,7 +185,7 @@ main.rs  (argument parsing + dispatch only)
     +---> commands/
               mod.rs      (Command trait definition)
               nodes.rs    (implements Command for node listing)
-              send.rs     (planned)
+              send.rs     (implements Command for sending messages)
               listen.rs   (planned)
               info.rs     (planned)
               ping.rs     (planned)
@@ -237,7 +267,8 @@ meshtastic-cli/
     ├── router.rs            # Packet routing and dispatch logic
     └── commands/
         ├── mod.rs           # Command trait and module exports
-        └── nodes.rs         # `nodes` command implementation
+        ├── nodes.rs         # `nodes` command implementation
+        └── send.rs          # `send` command implementation
 ```
 
 ---
@@ -249,7 +280,7 @@ The following commands are planned in priority order:
 | Command         | Description                                           | Status     |
 |-----------------|-------------------------------------------------------|------------|
 | `nodes`         | List all mesh nodes with device and signal info       | v0.1.0     |
-| `send <msg>`    | Send a text message to the mesh                       | Planned    |
+| `send <msg>`    | Send a text message to the mesh                       | v0.2.0     |
 | `listen`        | Stream all incoming packets to stdout in real time    | Planned    |
 | `info`          | Show local node info: ID, firmware version, channels  | Planned    |
 | `ping <node-id>`| Send a ping to a specific node and wait for ACK       | Planned    |
@@ -276,12 +307,11 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## Project Status
 
-**Current Version**: 0.1.0
+**Current Version**: 0.2.0
 **Development Status**: Early development
 **Stability**: Experimental — API and CLI interface may change
 
 **Next Milestones**:
-- `send` command for broadcasting text messages to the mesh
 - `listen` command for real-time packet streaming
 - `info` command for local node metadata
 - `ping` command with ACK waiting

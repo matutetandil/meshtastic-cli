@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-20
+
+### Added
+
+- `send` command to send text messages to the mesh network
+- Broadcast mode: send to all nodes (default when `--dest` and `--to` are omitted)
+- Targeted mode by ID: send to a specific node via `--dest !abcd1234` (hex node ID)
+- Targeted mode by name: send to a node via `--to Pedro` (case-insensitive name lookup)
+- Name resolution with disambiguation: if multiple nodes match a name, displays the list with hex IDs
+- Channel selection via `--channel` flag (0-7, default: 0)
+- Node ID parsing with `!` prefix support and hex validation
+- `NodeDb::find_by_name()` for case-insensitive node name search
+- Confirmation output with colored checkmark on successful send
+
+### Changed
+
+- `create_command()` factory now returns `Result` to handle argument validation errors at command creation time
+
 ## [0.1.0] - 2026-02-20
 
 ### Added
@@ -24,5 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `error.rs` module with project-wide error types
 - `commands/` module directory with one file per command following single-responsibility principles
 
-[Unreleased]: https://github.com/your-org/meshtastic-cli/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/your-org/meshtastic-cli/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/your-org/meshtastic-cli/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/your-org/meshtastic-cli/releases/tag/v0.1.0
