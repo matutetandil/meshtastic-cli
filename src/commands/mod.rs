@@ -1,5 +1,6 @@
 mod channel;
 mod config;
+mod export_import;
 mod info;
 mod listen;
 mod nodes;
@@ -176,6 +177,12 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
             ConfigAction::Set { key, value } => Ok(Box::new(config::ConfigSetCommand {
                 key: key.clone(),
                 value: value.clone(),
+            })),
+            ConfigAction::Export { file } => Ok(Box::new(export_import::ExportConfigCommand {
+                file: file.as_ref().map(std::path::PathBuf::from),
+            })),
+            ConfigAction::Import { file } => Ok(Box::new(export_import::ImportConfigCommand {
+                file: std::path::PathBuf::from(file),
             })),
         },
     }

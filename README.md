@@ -31,6 +31,8 @@
 - `config set` command: modify any configuration field with automatic device reboot
 - `traceroute` command: trace route to a node showing each hop with SNR values
 - `channel` command: add, delete, list, and set properties on channels (name, PSK, uplink/downlink)
+- `config export` command: export full device configuration (config, module config, channels) to YAML
+- `config import` command: import and apply configuration from a YAML file
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -111,7 +113,7 @@ Commands:
   send     Send a text message to the mesh network
   listen   Stream incoming packets in real time
   info     Show local node and device information
-  config      Get or set device configuration
+  config      Get, set, export, or import device configuration
   channel     Manage channels (add, delete, set, list)
   traceroute  Trace route to a node showing each hop
   ping        Ping a node and measure round-trip time
@@ -253,7 +255,7 @@ Channels
 
 ### `config`
 
-Read and write device and module configuration. Supports all 8 device config sections and 13 module config sections.
+Read, write, export, and import device and module configuration. Supports all 8 device config sections and 13 module config sections.
 
 #### `config get`
 
@@ -412,6 +414,78 @@ meshtastic-cli channel set 0 position_precision 14
 | `downlink_enabled` | Forward MQTT messages to mesh |
 | `position_precision` | Bits of precision for position data |
 
+#### `config export`
+
+Exports the full device configuration (device config, module config, and channels) as YAML. Useful for backups, sharing configurations, or migrating between devices.
+
+```bash
+# Print config to stdout
+meshtastic-cli config export
+
+# Save to a file
+meshtastic-cli config export --file backup.yaml
+```
+
+| Option | Description |
+|---|---|
+| `--file` | Output file path. If omitted, prints YAML to stdout |
+
+Example output (truncated):
+
+```yaml
+bluetooth:
+  enabled: true
+  fixed_pin: 123456
+  mode: 1
+device:
+  role: 0
+  node_info_broadcast_secs: 900
+  ...
+lora:
+  region: 1
+  modem_preset: 3
+  hop_limit: 3
+  ...
+mqtt:
+  enabled: false
+  address: mqtt.meshtastic.org
+  ...
+channels:
+  - index: 0
+    role: PRIMARY
+    name: ''
+    psk: '01'
+    uplink_enabled: false
+    downlink_enabled: false
+    position_precision: 0
+  - index: 1
+    role: SECONDARY
+    name: Team
+    psk: d4f1bb3a2029075960bcffabcf4e6901...
+    ...
+```
+
+#### `config import`
+
+Imports and applies configuration from a YAML file. The file format matches the output of `config export`. Sections not present in the file are left unchanged. The device will reboot after applying config changes.
+
+```bash
+# Import from a file
+meshtastic-cli config import backup.yaml
+```
+
+| Option | Description |
+|---|---|
+| `<FILE>` | Path to the YAML configuration file (required) |
+
+Example output:
+
+```
+-> Importing configuration from backup.yaml...
+ok Imported 8 config sections, 13 module sections, 2 channels.
+! Device will reboot to apply configuration changes.
+```
+
 ### `traceroute`
 
 Traces the route to a destination node, showing each hop along the path with SNR (signal-to-noise ratio) values.
@@ -506,6 +580,7 @@ main.rs  (argument parsing + dispatch only)
               config.rs   (implements Command for config get/set)
               channel.rs  (implements Command for channel management)
               traceroute.rs (implements Command for route tracing)
+              export_import.rs (implements Command for config export/import)
 ```
 
 ### Key Patterns
@@ -525,6 +600,7 @@ main.rs  (argument parsing + dispatch only)
 | Error handling  | thiserror / anyhow     | Typed errors in libraries, ergonomic in binaries    |
 | Serial I/O      | tokio-serial           | Async serial port support                           |
 | Terminal output | colored                | Readable, colored CLI output                        |
+| Serialization   | serde / serde_yaml     | YAML config export and import                       |
 
 > Note: The `meshtastic` crate (v0.1.8) is early-stage. When something appears underdocumented, refer to the source: https://github.com/meshtastic/rust
 
@@ -591,7 +667,8 @@ meshtastic-cli/
         ├── ping.rs          # `ping` command implementation
         ├── config.rs        # `config get/set` command implementation
         ├── traceroute.rs    # `traceroute` command implementation
-        └── channel.rs       # `channel` command implementation
+        ├── channel.rs       # `channel` command implementation
+        └── export_import.rs # `export-config`/`import-config` implementation
 ```
 
 ---
@@ -607,7 +684,7 @@ The following commands are planned in priority order:
 | `listen` | Stream all incoming packets to stdout in real time | Done |
 | `info` | Show local node info: ID, firmware version, channels | Done |
 | `ping <node-id>` | Send a ping to a specific node and wait for ACK | Done |
-| `config get/set` | Read and write device/module configuration | Done |
+| `config get/set/export/import` | Read, write, export, and import device configuration | Done |
 
 ### Tier 1 — High Priority
 
@@ -615,8 +692,8 @@ The following commands are planned in priority order:
 |---|---|---|
 | `traceroute` | Trace route to a node showing each hop with SNR | Done |
 | `channel add/del/set` | Add, delete, and configure channels | Done |
-| `export-config` | Export full device config as YAML | Planned |
-| `import-config` | Import and apply config from a YAML file | Planned |
+| `config export` | Export full device config as YAML | Done |
+| `config import` | Import and apply config from a YAML file | Done |
 | `reboot` | Reboot a node (local or remote) | Planned |
 | `shutdown` | Shut down a node (local or remote) | Planned |
 | `set-owner` | Set device long name and short name | Planned |

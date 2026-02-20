@@ -113,6 +113,17 @@ pub enum ConfigAction {
         /// New value to set
         value: String,
     },
+    /// Export full device configuration to YAML
+    Export {
+        /// Output file path (prints to stdout if omitted)
+        #[arg(long)]
+        file: Option<String>,
+    },
+    /// Import device configuration from a YAML file
+    Import {
+        /// YAML configuration file to import
+        file: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]

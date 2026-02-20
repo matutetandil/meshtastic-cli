@@ -755,7 +755,7 @@ fn parse_enum_i32(value: &str, variants: &[(&str, i32)]) -> anyhow::Result<i32> 
 
 // ── Config field mutation ──────────────────────────────────────────
 
-fn apply_config_field(
+pub(super) fn apply_config_field(
     section: &str,
     field_name: &str,
     value: &str,
@@ -1031,7 +1031,7 @@ fn apply_config_field(
     }
 }
 
-fn apply_module_config_field(
+pub(super) fn apply_module_config_field(
     section: &str,
     field_name: &str,
     value: &str,

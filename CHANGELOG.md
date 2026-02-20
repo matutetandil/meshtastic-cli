@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `channel add` command to add a secondary channel with configurable PSK (none, default, random, or hex key)
 - `channel del` command to delete a channel by index (protects primary channel 0)
 - `channel set` command to modify channel properties (name, psk, uplink_enabled, downlink_enabled, position_precision)
+- `config export` subcommand to export full device configuration (device config, module config, channels) as YAML to stdout or file
+- `config import` subcommand to import and apply configuration from a YAML file, with per-section updates and channel restoration
+- `serde` and `serde_yaml` dependencies for YAML serialization/deserialization
 
 ## [0.2.0] - 2026-02-20
 
