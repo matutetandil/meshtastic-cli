@@ -1,6 +1,12 @@
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
 use async_trait::async_trait;
 use colored::Colorize;
-use meshtastic::protobufs::{self, admin_message, mesh_packet, Data, MeshPacket, PortNum};
+use meshtastic::protobufs::from_radio::PayloadVariant;
+use meshtastic::protobufs::mesh_packet::PayloadVariant as MeshPayload;
+use meshtastic::protobufs::{
+    self, admin_message, mesh_packet, AdminMessage, Data, MeshPacket, PortNum,
+};
 use meshtastic::utils::generate_rand_id;
 use meshtastic::Message;
 
@@ -120,6 +126,196 @@ impl Command for ResetNodeDbCommand {
 
         println!("{} NodeDB reset command sent.", "ok".green());
 
+        Ok(())
+    }
+}
+
+// ── SetTimeCommand ────────────────────────────────────────────────
+
+pub struct SetTimeCommand {
+    pub time: Option<u32>,
+}
+
+#[async_trait]
+impl Command for SetTimeCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let timestamp = self.time.unwrap_or_else(|| {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as u32
+        });
+
+        let my_id = ctx.node_db.my_node_num();
+
+        println!(
+            "{} Setting device time to {} (unix timestamp)...",
+            "->".cyan(),
+            timestamp
+        );
+
+        send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::SetTimeOnly(timestamp),
+        )
+        .await?;
+
+        println!("{} Device time set.", "ok".green());
+        Ok(())
+    }
+}
+
+// ── SetCannedMessageCommand ──────────────────────────────────────
+
+pub struct SetCannedMessageCommand {
+    pub message: String,
+}
+
+#[async_trait]
+impl Command for SetCannedMessageCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let my_id = ctx.node_db.my_node_num();
+        let count = self.message.split('|').count();
+
+        println!("{} Setting {} canned message(s)...", "->".cyan(), count);
+
+        send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::SetCannedMessageModuleMessages(self.message.clone()),
+        )
+        .await?;
+
+        println!("{} Canned messages updated.", "ok".green());
+        Ok(())
+    }
+}
+
+// ── GetCannedMessageCommand ──────────────────────────────────────
+
+pub struct GetCannedMessageCommand {
+    pub timeout_secs: u64,
+}
+
+#[async_trait]
+impl Command for GetCannedMessageCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let my_id = ctx.node_db.my_node_num();
+        let packet_id = generate_rand_id();
+
+        let admin_msg = AdminMessage {
+            payload_variant: Some(
+                admin_message::PayloadVariant::GetCannedMessageModuleMessagesRequest(true),
+            ),
+            session_passkey: Vec::new(),
+        };
+
+        let mesh_packet = MeshPacket {
+            from: my_id,
+            to: my_id,
+            id: packet_id,
+            want_ack: true,
+            channel: 0,
+            hop_limit: 3,
+            payload_variant: Some(mesh_packet::PayloadVariant::Decoded(Data {
+                portnum: PortNum::AdminApp as i32,
+                payload: admin_msg.encode_to_vec(),
+                want_response: true,
+                ..Default::default()
+            })),
+            ..Default::default()
+        };
+
+        println!("{} Requesting canned messages...", "->".cyan());
+
+        ctx.api
+            .send_to_radio_packet(Some(protobufs::to_radio::PayloadVariant::Packet(
+                mesh_packet,
+            )))
+            .await?;
+
+        let start = Instant::now();
+        let timeout = Duration::from_secs(self.timeout_secs);
+
+        loop {
+            let remaining = timeout.saturating_sub(start.elapsed());
+            if remaining.is_zero() {
+                println!(
+                    "{} Timeout after {}s — no response.",
+                    "x".red(),
+                    self.timeout_secs
+                );
+                return Ok(());
+            }
+
+            let packet = tokio::time::timeout(remaining, ctx.packet_receiver.recv()).await;
+
+            match packet {
+                Err(_) => {
+                    println!(
+                        "{} Timeout after {}s — no response.",
+                        "x".red(),
+                        self.timeout_secs
+                    );
+                    return Ok(());
+                }
+                Ok(None) => anyhow::bail!("Packet receiver closed unexpectedly"),
+                Ok(Some(envelope)) => {
+                    let Some(PayloadVariant::Packet(mp)) = envelope.payload_variant else {
+                        continue;
+                    };
+                    let Some(MeshPayload::Decoded(data)) = &mp.payload_variant else {
+                        continue;
+                    };
+                    if data.portnum != PortNum::AdminApp as i32 || mp.from != my_id {
+                        continue;
+                    }
+                    if let Ok(admin) = AdminMessage::decode(data.payload.as_slice()) {
+                        if let Some(
+                            admin_message::PayloadVariant::GetCannedMessageModuleMessagesResponse(
+                                messages,
+                            ),
+                        ) = admin.payload_variant
+                        {
+                            println!("{}", "Canned Messages".bold().underline());
+                            if messages.is_empty() {
+                                println!("  {}", "(none configured)".dimmed());
+                            } else {
+                                for (i, msg) in messages.split('|').enumerate() {
+                                    println!("  {}: {}", format!("[{}]", i).bold(), msg);
+                                }
+                            }
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── SetRingtoneCommand ───────────────────────────────────────────
+
+pub struct SetRingtoneCommand {
+    pub ringtone: String,
+}
+
+#[async_trait]
+impl Command for SetRingtoneCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let my_id = ctx.node_db.my_node_num();
+
+        println!("{} Setting ringtone: {}", "->".cyan(), self.ringtone.bold());
+
+        send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::SetRingtoneMessage(self.ringtone.clone()),
+        )
+        .await?;
+
+        println!("{} Ringtone updated.", "ok".green());
         Ok(())
     }
 }

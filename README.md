@@ -30,12 +30,20 @@
 - `config get` command: display all or individual device/module configuration sections
 - `config set` command: modify any configuration field with automatic device reboot
 - `traceroute` command: trace route to a node showing each hop with SNR values
-- `channel` command: add, delete, list, and set properties on channels (name, PSK, uplink/downlink)
+- `channel` command: add, delete, list, set properties, and generate QR codes for channels
 - `config export` command: export full device configuration (config, module config, channels) to YAML
 - `config import` command: import and apply configuration from a YAML file
 - `device reboot` command: reboot local or remote device with configurable delay
 - `device shutdown` command: shut down local or remote device with configurable delay
+- `device set-time` command: set the device clock from a Unix timestamp or system time
+- `device set-canned-message` command: configure canned message slots separated by `|`
+- `device get-canned-message` command: display currently configured canned messages
+- `device set-ringtone` command: set the notification ringtone in RTTTL format
 - `node set-owner` command: set device long name and short name
+- `node set-favorite` command: mark a node as favorite
+- `node remove-favorite` command: remove a node from favorites
+- `node set-ignored` command: mark a node as ignored
+- `node remove-ignored` command: remove a node from the ignored list
 - `device factory-reset` command: restore factory defaults
 - `device reset-nodedb` command: clear the node database
 - `node remove` command: remove a specific node from the local NodeDB
@@ -43,6 +51,7 @@
 - `position set` command: set a fixed GPS position (latitude, longitude, altitude)
 - `request telemetry` command: request telemetry from a remote node
 - `request position` command: request position from a remote node
+- `request metadata` command: request device metadata from a remote node
 - `config set-ham` command: configure licensed Ham radio mode with callsign
 - `config set-url` command: apply channels and LoRa config from a meshtastic:// URL
 - Colored terminal output for readability
@@ -126,11 +135,11 @@ Commands:
   listen   Stream incoming packets in real time
   info     Show local node and device information
   config      Get, set, export, import, set-ham, set-url
-  node        Node management (set-owner, remove)
-  device      Device management (reboot, shutdown, factory-reset, reset-nodedb)
-  channel     Manage channels (add, delete, set, list)
+  node        Node management (set-owner, remove, set-favorite, remove-favorite, set-ignored, remove-ignored)
+  device      Device management (reboot, shutdown, factory-reset, reset-nodedb, set-time, set-canned-message, get-canned-message, set-ringtone)
+  channel     Manage channels (add, delete, set, list, qr)
   position    GPS position (get, set)
-  request     Request data from remote nodes (telemetry, position)
+  request     Request data from remote nodes (telemetry, position, metadata)
   traceroute  Trace route to a node showing each hop
   ping        Ping a node and measure round-trip time
 ```
@@ -223,12 +232,12 @@ Decodes and displays the following packet types:
 Example output:
 
 ```
-→ Listening for packets... Press Ctrl+C to stop.
+-> Listening for packets... Press Ctrl+C to stop.
 
-[15:30:00] !04e1c43b (Pedro) → broadcast      | Text: Hello everyone!
-[15:30:05] !a1b2c3d4 (María) → !04e1c43b      | Position: 40.41680, -3.70380, 650m, 8 sats
-[15:30:10] !04e1c43b (Pedro) → broadcast       | Telemetry: battery 85%, 3.90V, ch_util 12.3%
-[15:30:15] !a1b2c3d4 (María) → !04e1c43b      | Routing: ACK
+[15:30:00] !04e1c43b (Pedro) -> broadcast      | Text: Hello everyone!
+[15:30:05] !a1b2c3d4 (Maria) -> !04e1c43b      | Position: 40.41680, -3.70380, 650m, 8 sats
+[15:30:10] !04e1c43b (Pedro) -> broadcast       | Telemetry: battery 85%, 3.90V, ch_util 12.3%
+[15:30:15] !a1b2c3d4 (Maria) -> !04e1c43b      | Routing: ACK
 ```
 
 ### `info`
@@ -391,9 +400,68 @@ meshtastic-cli node remove --to Pedro
 | `--dest` | Node ID in hex to remove (required unless `--to` is used) |
 | `--to` | Node name to remove (required unless `--dest` is used) |
 
+#### `node set-favorite`
+
+Mark a node as a favorite. Favorites are stored on the device and can be used for filtering in compatible clients.
+
+```bash
+# Mark by node ID
+meshtastic-cli node set-favorite --dest 04e1c43b
+
+# Mark by name
+meshtastic-cli node set-favorite --to Pedro
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Node ID in hex (required unless `--to` is used) |
+| `--to` | Node name (required unless `--dest` is used) |
+
+#### `node remove-favorite`
+
+Remove a node from the favorites list.
+
+```bash
+meshtastic-cli node remove-favorite --dest 04e1c43b
+meshtastic-cli node remove-favorite --to Pedro
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Node ID in hex (required unless `--to` is used) |
+| `--to` | Node name (required unless `--dest` is used) |
+
+#### `node set-ignored`
+
+Mark a node as ignored. Ignored nodes are filtered out of mesh activity on the local device.
+
+```bash
+meshtastic-cli node set-ignored --dest 04e1c43b
+meshtastic-cli node set-ignored --to Pedro
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Node ID in hex (required unless `--to` is used) |
+| `--to` | Node name (required unless `--dest` is used) |
+
+#### `node remove-ignored`
+
+Remove a node from the ignored list.
+
+```bash
+meshtastic-cli node remove-ignored --dest 04e1c43b
+meshtastic-cli node remove-ignored --to Pedro
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Node ID in hex (required unless `--to` is used) |
+| `--to` | Node name (required unless `--dest` is used) |
+
 ### `device`
 
-Device management commands: reboot, shutdown, factory-reset, and reset-nodedb. Reboot and shutdown support targeting the local device (default) or a remote node.
+Device management commands: reboot, shutdown, factory-reset, reset-nodedb, set-time, canned messages, and ringtone. Reboot and shutdown support targeting the local device (default) or a remote node.
 
 #### `device reboot`
 
@@ -456,9 +524,75 @@ Clear the device's entire node database. This removes all known nodes from the l
 meshtastic-cli device reset-nodedb
 ```
 
+#### `device set-time`
+
+Set the device clock. Uses the current system time if no timestamp is provided.
+
+```bash
+# Set time from system clock
+meshtastic-cli device set-time
+
+# Set time from a specific Unix timestamp
+meshtastic-cli device set-time 1708444800
+```
+
+| Option | Description |
+|---|---|
+| `[TIMESTAMP]` | Unix timestamp in seconds. Uses system time if omitted |
+
+#### `device set-canned-message`
+
+Set the canned messages stored on the device. Messages are separated by `|` and can be selected quickly from a compatible Meshtastic client.
+
+```bash
+meshtastic-cli device set-canned-message "Yes|No|Help|On my way|Call me"
+```
+
+| Option | Description |
+|---|---|
+| `<MESSAGES>` | Pipe-separated list of canned messages (required) |
+
+#### `device get-canned-message`
+
+Display the canned messages currently configured on the device. Requests the canned message module config from the device and waits for the response.
+
+```bash
+meshtastic-cli device get-canned-message
+
+# Custom timeout
+meshtastic-cli device get-canned-message --timeout 60
+```
+
+| Option | Description |
+|---|---|
+| `--timeout` | Seconds to wait for the device response (default: 30) |
+
+Example output:
+
+```
+Canned messages:
+  1: Yes
+  2: No
+  3: Help
+  4: On my way
+  5: Call me
+```
+
+#### `device set-ringtone`
+
+Set the notification ringtone on the device. The ringtone is provided in RTTTL (Ring Tone Text Transfer Language) format.
+
+```bash
+meshtastic-cli device set-ringtone "scale:d=4,o=5,b=120:c,e,g,c6"
+```
+
+| Option | Description |
+|---|---|
+| `<RINGTONE>` | Ringtone string in RTTTL format (required) |
+
 ### `channel`
 
-Manage device channels: list, add, delete, and modify properties.
+Manage device channels: list, add, delete, modify properties, and generate a QR code for sharing.
 
 #### `channel list`
 
@@ -535,6 +669,24 @@ meshtastic-cli channel set 0 position_precision 14
 | `uplink_enabled` | Forward mesh messages to MQTT |
 | `downlink_enabled` | Forward MQTT messages to mesh |
 | `position_precision` | Bits of precision for position data |
+
+#### `channel qr`
+
+Generate a QR code and shareable meshtastic:// URL for the current channel configuration. The QR code is printed directly to the terminal using Unicode block characters and can be scanned by the Meshtastic mobile app.
+
+```bash
+meshtastic-cli channel qr
+```
+
+Example output:
+
+```
+Channel URL:
+  https://meshtastic.org/e/#ENCODED...
+
+QR Code:
+  [block character QR code rendered in terminal]
+```
 
 #### `config export`
 
@@ -697,15 +849,15 @@ meshtastic-cli ping --dest 04e1c43b --timeout 60
 Example output:
 
 ```
-→ Pinging !04e1c43b (Pedro) (packet id: a1b2c3d4)...
-✓ ACK from !04e1c43b (Pedro) in 2.3s
+-> Pinging !04e1c43b (Pedro) (packet id: a1b2c3d4)...
+ok ACK from !04e1c43b (Pedro) in 2.3s
 ```
 
 If the node doesn't respond:
 
 ```
-→ Pinging !04e1c43b (Pedro) (packet id: a1b2c3d4)...
-✗ Timeout after 30s — no ACK from !04e1c43b (Pedro)
+-> Pinging !04e1c43b (Pedro) (packet id: a1b2c3d4)...
+x Timeout after 30s -- no ACK from !04e1c43b (Pedro)
 ```
 
 ### `position`
@@ -773,6 +925,34 @@ meshtastic-cli request position --dest 04e1c43b
 | `--dest` | Target node ID in hex (required unless `--to` is used) |
 | `--to` | Target node name (required unless `--dest` is used) |
 
+#### `request metadata`
+
+Request device metadata (firmware version, hardware model, capabilities) from a remote node.
+
+```bash
+# Request by node ID
+meshtastic-cli request metadata --dest 04e1c43b
+
+# Request by name with custom timeout
+meshtastic-cli request metadata --to Pedro --timeout 60
+```
+
+| Option | Description |
+|---|---|
+| `--dest` | Target node ID in hex (required unless `--to` is used) |
+| `--to` | Target node name (required unless `--dest` is used) |
+| `--timeout` | Seconds to wait for response (default: 30) |
+
+Example output:
+
+```
+Device metadata from Pedro (!04e1c43b):
+  Firmware:     2.5.6.abc1234
+  Hardware:     HELTEC_V3
+  Device ID:    04e1c43b
+  Capabilities: HasWifi, HasBluetooth
+```
+
 ---
 
 ## Architecture
@@ -785,7 +965,7 @@ CLI Input
     v
 main.rs  (argument parsing + dispatch only)
     |
-    +---> connection.rs  (TCP or Serial → StreamApi)
+    +---> connection.rs  (TCP or Serial -> StreamApi)
     |
     +---> commands/
               mod.rs      (Command trait definition)
@@ -798,7 +978,7 @@ main.rs  (argument parsing + dispatch only)
               channel.rs  (implements Command for channel management)
               traceroute.rs (implements Command for route tracing)
               export_import.rs (implements Command for config export/import)
-              device.rs   (implements Command for reboot/shutdown)
+              device.rs   (implements Command for reboot/shutdown/time/canned/ringtone)
               node.rs     (implements Command for node management)
               position.rs (implements Command for GPS position get/set)
               request.rs  (implements Command for remote data requests)
@@ -822,6 +1002,7 @@ main.rs  (argument parsing + dispatch only)
 | Serial I/O      | tokio-serial           | Async serial port support                           |
 | Terminal output | colored                | Readable, colored CLI output                        |
 | Serialization   | serde / serde_yaml     | YAML config export and import                       |
+| QR codes        | qrcode                 | Terminal QR code generation for channel sharing     |
 
 > Note: The `meshtastic` crate (v0.1.8) is early-stage. When something appears underdocumented, refer to the source: https://github.com/meshtastic/rust
 
@@ -886,21 +1067,19 @@ meshtastic-cli/
         ├── listen.rs        # `listen` command implementation
         ├── info.rs          # `info` command implementation
         ├── ping.rs          # `ping` command implementation
-        ├── config.rs        # `config get/set` command implementation
+        ├── config.rs        # `config get/set/set-ham/set-url` implementation
         ├── traceroute.rs    # `traceroute` command implementation
-        ├── channel.rs       # `channel` command implementation
+        ├── channel.rs       # `channel add/del/set/list/qr` implementation
         ├── export_import.rs # `config export`/`config import` implementation
-        ├── device.rs        # `device reboot`/`device shutdown` implementation
-        ├── node.rs          # `node set-owner` implementation
+        ├── device.rs        # `device` subcommands implementation
+        ├── node.rs          # `node` subcommands implementation
         ├── position.rs      # `position get/set` implementation
-        └── request.rs       # `request telemetry/position` implementation
+        └── request.rs       # `request telemetry/position/metadata` implementation
 ```
 
 ---
 
 ## Roadmap
-
-The following commands are planned in priority order:
 
 | Command | Description | Status |
 |---|---|---|
@@ -940,13 +1119,19 @@ The following commands are planned in priority order:
 
 | Command | Description | Status |
 |---|---|---|
-| `qr` | Show QR code for channel sharing | Planned |
-| `set-canned-message` | Set/get canned messages | Planned |
-| `set-ringtone` | Set/get notification ringtone | Planned |
-| `set-favorite-node` | Mark/unmark a node as favorite | Planned |
-| `set-ignored-node` | Mark/unmark a node as ignored | Planned |
-| `set-time` | Set node time via unix timestamp | Planned |
-| `device-metadata` | Retrieve metadata from a remote node | Planned |
+| `channel qr` | Show QR code and URL for channel sharing | Done |
+| `device set-canned-message` | Set canned messages on the device | Done |
+| `device get-canned-message` | Display configured canned messages | Done |
+| `device set-ringtone` | Set notification ringtone in RTTTL format | Done |
+| `node set-favorite` / `remove-favorite` | Mark/unmark a node as favorite | Done |
+| `node set-ignored` / `remove-ignored` | Mark/unmark a node as ignored | Done |
+| `device set-time` | Set node time via Unix timestamp | Done |
+| `request metadata` | Retrieve device metadata from a remote node | Done |
+
+### Future
+
+| Command | Description | Status |
+|---|---|---|
 | `gpio` | Read/write/watch GPIO on remote nodes | Planned |
 | `reply` | Auto-reply to received messages with stats | Planned |
 
@@ -973,7 +1158,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 ## Project Status
 
 **Current Version**: 0.2.0
-**Development Status**: Early development
+**Development Status**: Active development
 **Stability**: Experimental — API and CLI interface may change
 
 **Next Milestones**:

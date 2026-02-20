@@ -50,6 +50,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `config set-ham` command to configure licensed Ham radio mode with callsign, TX power, and frequency
 - `config set-url` command to apply channels and LoRa configuration from a meshtastic:// URL
 - Auto-generated short name from long name when `--short` is omitted (initials for multi-word, first 4 chars for single word)
+- `node set-favorite` command to mark a node as favorite by ID or name
+- `node remove-favorite` command to remove a node from the favorites list
+- `node set-ignored` command to mark a node as ignored by ID or name
+- `node remove-ignored` command to remove a node from the ignored list
+- `device set-time` command to synchronize the device clock, using the current system time when no explicit timestamp is provided
+- `device set-canned-message` command to configure canned messages on the device, with messages separated by `|`
+- `device get-canned-message` command to display the currently configured canned messages
+- `device set-ringtone` command to set the device ringtone using RTTTL format
+- `request metadata` command to request device metadata (firmware version, hardware model, and capabilities) from a remote node
+- `channel qr` command to generate a QR code and shareable URL for the current channel configuration
+- `qrcode` dependency for terminal QR code generation
 
 ## [0.2.0] - 2026-02-20
 

@@ -193,6 +193,46 @@ pub enum NodeAction {
         #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
         to: Option<String>,
     },
+    /// Mark a node as favorite
+    SetFavorite {
+        /// Node ID in hex (e.g. 04e1c43b)
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Node name to mark as favorite
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+    },
+    /// Remove a node from favorites
+    RemoveFavorite {
+        /// Node ID in hex (e.g. 04e1c43b)
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Node name to remove from favorites
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+    },
+    /// Mark a node as ignored
+    SetIgnored {
+        /// Node ID in hex (e.g. 04e1c43b)
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Node name to ignore
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+    },
+    /// Remove a node from the ignored list
+    RemoveIgnored {
+        /// Node ID in hex (e.g. 04e1c43b)
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Node name to remove from ignored list
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -228,6 +268,27 @@ pub enum DeviceAction {
         /// Delay in seconds before shutting down
         #[arg(long, default_value_t = 5)]
         delay: i32,
+    },
+    /// Set the device clock (uses current system time if no timestamp given)
+    SetTime {
+        /// Unix timestamp to set. Uses current system time if omitted.
+        time: Option<u32>,
+    },
+    /// Set canned messages (separated by '|')
+    SetCannedMessage {
+        /// Messages separated by '|' (e.g. "Yes|No|Help|SOS")
+        message: String,
+    },
+    /// Display the configured canned messages
+    GetCannedMessage {
+        /// Timeout in seconds to wait for response
+        #[arg(long, default_value_t = 30)]
+        timeout: u64,
+    },
+    /// Set the device ringtone (RTTTL format)
+    SetRingtone {
+        /// Ringtone in RTTTL format (e.g. "ring:d=4,o=5,b=120:c,e,g")
+        ringtone: String,
     },
 }
 
@@ -277,6 +338,20 @@ pub enum RequestAction {
         #[arg(long, default_value_t = 30)]
         timeout: u64,
     },
+    /// Request device metadata from a remote node
+    Metadata {
+        /// Target node ID in hex
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Target node name
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+
+        /// Timeout in seconds
+        #[arg(long, default_value_t = 30)]
+        timeout: u64,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -306,6 +381,8 @@ pub enum ChannelAction {
     },
     /// List all channels (same as info, but channel-focused)
     List,
+    /// Generate a QR code for sharing channels
+    Qr,
 }
 
 #[derive(Debug, Clone, ValueEnum)]

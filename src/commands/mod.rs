@@ -166,6 +166,22 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 let destination = parse_dest_spec(dest, to)?;
                 Ok(Box::new(node::RemoveNodeCommand { destination }))
             }
+            NodeAction::SetFavorite { dest, to } => {
+                let destination = parse_dest_spec(dest, to)?;
+                Ok(Box::new(node::SetFavoriteCommand { destination }))
+            }
+            NodeAction::RemoveFavorite { dest, to } => {
+                let destination = parse_dest_spec(dest, to)?;
+                Ok(Box::new(node::RemoveFavoriteCommand { destination }))
+            }
+            NodeAction::SetIgnored { dest, to } => {
+                let destination = parse_dest_spec(dest, to)?;
+                Ok(Box::new(node::SetIgnoredCommand { destination }))
+            }
+            NodeAction::RemoveIgnored { dest, to } => {
+                let destination = parse_dest_spec(dest, to)?;
+                Ok(Box::new(node::RemoveIgnoredCommand { destination }))
+            }
         },
         Commands::Position { action } => match action {
             PositionAction::Get => Ok(Box::new(position::PositionGetCommand)),
@@ -190,6 +206,13 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                     timeout_secs: *timeout,
                 }))
             }
+            RequestAction::Metadata { dest, to, timeout } => {
+                let destination = parse_dest_spec(dest, to)?;
+                Ok(Box::new(request::RequestMetadataCommand {
+                    destination,
+                    timeout_secs: *timeout,
+                }))
+            }
         },
         Commands::Device { action } => match action {
             DeviceAction::Reboot { dest, to, delay } => {
@@ -208,6 +231,20 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                     delay_secs: *delay,
                 }))
             }
+            DeviceAction::SetTime { time } => Ok(Box::new(device::SetTimeCommand { time: *time })),
+            DeviceAction::SetCannedMessage { message } => {
+                Ok(Box::new(device::SetCannedMessageCommand {
+                    message: message.clone(),
+                }))
+            }
+            DeviceAction::GetCannedMessage { timeout } => {
+                Ok(Box::new(device::GetCannedMessageCommand {
+                    timeout_secs: *timeout,
+                }))
+            }
+            DeviceAction::SetRingtone { ringtone } => Ok(Box::new(device::SetRingtoneCommand {
+                ringtone: ringtone.clone(),
+            })),
         },
         Commands::Channel { action } => match action {
             ChannelAction::List => Ok(Box::new(channel::ChannelListCommand)),
@@ -227,6 +264,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 field: field.clone(),
                 value: value.clone(),
             })),
+            ChannelAction::Qr => Ok(Box::new(channel::ChannelQrCommand)),
         },
         Commands::Config { action } => match action {
             ConfigAction::Get { section } => Ok(Box::new(config::ConfigGetCommand {

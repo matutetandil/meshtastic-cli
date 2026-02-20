@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use colored::Colorize;
 use meshtastic::protobufs::{self, admin_message};
 
+use super::device::send_admin_message;
 use super::{resolve_destination, Command, CommandContext, DestinationSpec};
 
 // ── SetOwnerCommand ───────────────────────────────────────────────
@@ -78,19 +79,10 @@ pub struct RemoveNodeCommand {
 #[async_trait]
 impl Command for RemoveNodeCommand {
     async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
-        let (_, label) = resolve_destination(&self.destination, &ctx.node_db)?;
+        let target_num = resolve_node_num(&self.destination, &ctx)?;
+        let label = format_node_label(target_num, &ctx);
 
-        let target_num = match &self.destination {
-            DestinationSpec::NodeId(id) => *id,
-            DestinationSpec::NodeName(_) => {
-                let matches = match &self.destination {
-                    DestinationSpec::NodeName(name) => ctx.node_db.find_by_name(name),
-                    _ => unreachable!(),
-                };
-                matches[0].0
-            }
-            DestinationSpec::Broadcast => bail!("Must specify a node to remove via --dest or --to"),
-        };
+        let my_id = ctx.node_db.my_node_num();
 
         println!(
             "{} Removing node {} from local NodeDB...",
@@ -98,8 +90,7 @@ impl Command for RemoveNodeCommand {
             label.bold()
         );
 
-        let my_id = ctx.node_db.my_node_num();
-        super::device::send_admin_message(
+        send_admin_message(
             &mut ctx,
             my_id,
             admin_message::PayloadVariant::RemoveByNodenum(target_num),
@@ -110,6 +101,149 @@ impl Command for RemoveNodeCommand {
 
         Ok(())
     }
+}
+
+// ── SetFavoriteCommand ────────────────────────────────────────────
+
+pub struct SetFavoriteCommand {
+    pub destination: DestinationSpec,
+}
+
+#[async_trait]
+impl Command for SetFavoriteCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let target_num = resolve_node_num(&self.destination, &ctx)?;
+        let label = format_node_label(target_num, &ctx);
+
+        let my_id = ctx.node_db.my_node_num();
+
+        println!("{} Setting {} as favorite...", "->".cyan(), label.bold());
+
+        send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::SetFavoriteNode(target_num),
+        )
+        .await?;
+
+        println!("{} {} marked as favorite.", "ok".green(), label);
+        Ok(())
+    }
+}
+
+// ── RemoveFavoriteCommand ────────────────────────────────────────
+
+pub struct RemoveFavoriteCommand {
+    pub destination: DestinationSpec,
+}
+
+#[async_trait]
+impl Command for RemoveFavoriteCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let target_num = resolve_node_num(&self.destination, &ctx)?;
+        let label = format_node_label(target_num, &ctx);
+
+        let my_id = ctx.node_db.my_node_num();
+
+        println!(
+            "{} Removing {} from favorites...",
+            "->".cyan(),
+            label.bold()
+        );
+
+        send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::RemoveFavoriteNode(target_num),
+        )
+        .await?;
+
+        println!("{} {} removed from favorites.", "ok".green(), label);
+        Ok(())
+    }
+}
+
+// ── SetIgnoredCommand ────────────────────────────────────────────
+
+pub struct SetIgnoredCommand {
+    pub destination: DestinationSpec,
+}
+
+#[async_trait]
+impl Command for SetIgnoredCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let target_num = resolve_node_num(&self.destination, &ctx)?;
+        let label = format_node_label(target_num, &ctx);
+
+        let my_id = ctx.node_db.my_node_num();
+
+        println!("{} Setting {} as ignored...", "->".cyan(), label.bold());
+
+        send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::SetIgnoredNode(target_num),
+        )
+        .await?;
+
+        println!("{} {} marked as ignored.", "ok".green(), label);
+        Ok(())
+    }
+}
+
+// ── RemoveIgnoredCommand ─────────────────────────────────────────
+
+pub struct RemoveIgnoredCommand {
+    pub destination: DestinationSpec,
+}
+
+#[async_trait]
+impl Command for RemoveIgnoredCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let target_num = resolve_node_num(&self.destination, &ctx)?;
+        let label = format_node_label(target_num, &ctx);
+
+        let my_id = ctx.node_db.my_node_num();
+
+        println!(
+            "{} Removing {} from ignored list...",
+            "->".cyan(),
+            label.bold()
+        );
+
+        send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::RemoveIgnoredNode(target_num),
+        )
+        .await?;
+
+        println!("{} {} removed from ignored list.", "ok".green(), label);
+        Ok(())
+    }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+fn resolve_node_num(destination: &DestinationSpec, ctx: &CommandContext) -> anyhow::Result<u32> {
+    match destination {
+        DestinationSpec::NodeId(id) => Ok(*id),
+        DestinationSpec::NodeName(name) => {
+            let (_, _) = resolve_destination(destination, &ctx.node_db)?;
+            let matches = ctx.node_db.find_by_name(name);
+            Ok(matches[0].0)
+        }
+        DestinationSpec::Broadcast => {
+            bail!("Must specify a node via --dest or --to")
+        }
+    }
+}
+
+fn format_node_label(node_num: u32, ctx: &CommandContext) -> String {
+    ctx.node_db
+        .node_name(node_num)
+        .map(|name| format!("{} (!{:08x})", name, node_num))
+        .unwrap_or_else(|| format!("!{:08x}", node_num))
 }
 
 /// Generate a short name from a long name by taking the first character

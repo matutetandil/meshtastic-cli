@@ -2,6 +2,8 @@ use anyhow::bail;
 use async_trait::async_trait;
 use colored::Colorize;
 use meshtastic::protobufs::{self, channel, ChannelSettings};
+use meshtastic::Message;
+use qrcode::QrCode;
 
 use super::{Command, CommandContext};
 
@@ -219,6 +221,78 @@ impl Command for ChannelSetCommand {
     }
 }
 
+// ── ChannelQrCommand ──────────────────────────────────────────────
+
+pub struct ChannelQrCommand;
+
+#[async_trait]
+impl Command for ChannelQrCommand {
+    async fn execute(self: Box<Self>, ctx: CommandContext) -> anyhow::Result<()> {
+        let channels = ctx.node_db.channels();
+        let lora_config = ctx.node_db.local_config().lora.clone();
+
+        let settings: Vec<ChannelSettings> = channels
+            .iter()
+            .filter(|ch| ch.role != channel::Role::Disabled as i32)
+            .filter_map(|ch| ch.settings.clone())
+            .collect();
+
+        if settings.is_empty() {
+            println!("{}", "(no enabled channels to share)".dimmed());
+            return Ok(());
+        }
+
+        let channel_set = protobufs::ChannelSet {
+            settings,
+            lora_config,
+        };
+
+        let encoded = channel_set.encode_to_vec();
+        let b64 = base64_url_encode(&encoded);
+        let url = format!("https://meshtastic.org/e/#{}", b64);
+
+        match QrCode::new(url.as_bytes()) {
+            Ok(code) => {
+                let width = code.width();
+                let data = code.into_colors();
+
+                // Top quiet zone
+                let line_width = width + 4; // 2 module quiet zone on each side
+                let empty_line: String =
+                    std::iter::repeat_n("\u{2588}\u{2588}", line_width).collect();
+                println!("{}", empty_line);
+                println!("{}", empty_line);
+
+                for y in 0..width {
+                    // Left quiet zone
+                    print!("\u{2588}\u{2588}\u{2588}\u{2588}");
+                    for x in 0..width {
+                        let idx = y * width + x;
+                        match data[idx] {
+                            qrcode::Color::Dark => print!("  "), // dark module
+                            qrcode::Color::Light => print!("\u{2588}\u{2588}"), // light module
+                        }
+                    }
+                    // Right quiet zone
+                    println!("\u{2588}\u{2588}\u{2588}\u{2588}");
+                }
+
+                // Bottom quiet zone
+                println!("{}", empty_line);
+                println!("{}", empty_line);
+            }
+            Err(e) => {
+                println!("{} Failed to generate QR code: {}", "x".red(), e);
+            }
+        }
+
+        println!();
+        println!("{} {}", "URL:".bold(), url);
+
+        Ok(())
+    }
+}
+
 // ── Helpers ────────────────────────────────────────────────────────
 
 fn find_next_free_index(channels: &[protobufs::Channel]) -> anyhow::Result<i32> {
@@ -324,6 +398,32 @@ fn print_channel(ch: &protobufs::Channel) {
         uplink,
         downlink
     );
+}
+
+fn base64_url_encode(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+    let mut result = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    let chunks = bytes.chunks(3);
+
+    for chunk in chunks {
+        let b0 = chunk[0] as u32;
+        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
+        let n = (b0 << 16) | (b1 << 8) | b2;
+
+        result.push(TABLE[((n >> 18) & 0x3F) as usize] as char);
+        result.push(TABLE[((n >> 12) & 0x3F) as usize] as char);
+
+        if chunk.len() > 1 {
+            result.push(TABLE[((n >> 6) & 0x3F) as usize] as char);
+        }
+        if chunk.len() > 2 {
+            result.push(TABLE[(n & 0x3F) as usize] as char);
+        }
+    }
+
+    result
 }
 
 fn format_psk(psk: &[u8]) -> String {
