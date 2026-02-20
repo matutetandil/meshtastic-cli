@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Packet decoding for text messages, position, telemetry (device, environment, power), node info, and routing (ACK/NAK)
 - Colored, timestamped output with sender name resolution from node database
 - `NodeDb::node_name()` helper for quick node name lookup by ID
+- `info` command to display local node details: ID, name, hardware model, role, firmware version, capabilities (WiFi, Bluetooth, Ethernet, PKC), device metrics, GPS position, and active channels with encryption type
+- Channel and DeviceMetadata collection during the configure handshake
+- `NodeDb::local_node()`, `NodeDb::channels()`, `NodeDb::metadata()`, `NodeDb::my_node_info()` accessors
 
 ## [0.2.0] - 2026-02-20
 

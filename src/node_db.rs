@@ -13,6 +13,8 @@ const CONFIG_TIMEOUT: Duration = Duration::from_secs(30);
 pub struct NodeDb {
     my_node_info: protobufs::MyNodeInfo,
     nodes: HashMap<u32, protobufs::NodeInfo>,
+    channels: Vec<protobufs::Channel>,
+    metadata: Option<protobufs::DeviceMetadata>,
 }
 
 impl NodeDb {
@@ -22,6 +24,8 @@ impl NodeDb {
     ) -> Result<Self, CliError> {
         let mut my_node_info: Option<protobufs::MyNodeInfo> = None;
         let mut nodes: HashMap<u32, protobufs::NodeInfo> = HashMap::new();
+        let mut channels: Vec<protobufs::Channel> = Vec::new();
+        let mut metadata: Option<protobufs::DeviceMetadata> = None;
 
         loop {
             let packet = timeout(CONFIG_TIMEOUT, receiver.recv())
@@ -44,6 +48,14 @@ impl NodeDb {
                     log::debug!("Received NodeInfo: num={}", info.num);
                     nodes.insert(info.num, info);
                 }
+                PayloadVariant::Channel(ch) => {
+                    log::debug!("Received Channel: index={}", ch.index);
+                    channels.push(ch);
+                }
+                PayloadVariant::Metadata(meta) => {
+                    log::debug!("Received DeviceMetadata: fw={}", meta.firmware_version);
+                    metadata = Some(meta);
+                }
                 PayloadVariant::ConfigCompleteId(id) if id == config_id => {
                     log::debug!("Configuration complete (id={})", id);
                     break;
@@ -56,9 +68,13 @@ impl NodeDb {
 
         let my_node_info = my_node_info.ok_or(CliError::NoLocalNodeInfo)?;
 
+        channels.sort_by_key(|c| c.index);
+
         Ok(Self {
             my_node_info,
             nodes,
+            channels,
+            metadata,
         })
     }
 
@@ -68,6 +84,22 @@ impl NodeDb {
 
     pub fn nodes(&self) -> &HashMap<u32, protobufs::NodeInfo> {
         &self.nodes
+    }
+
+    pub fn my_node_info(&self) -> &protobufs::MyNodeInfo {
+        &self.my_node_info
+    }
+
+    pub fn local_node(&self) -> Option<&protobufs::NodeInfo> {
+        self.nodes.get(&self.my_node_info.my_node_num)
+    }
+
+    pub fn channels(&self) -> &[protobufs::Channel] {
+        &self.channels
+    }
+
+    pub fn metadata(&self) -> Option<&protobufs::DeviceMetadata> {
+        self.metadata.as_ref()
     }
 
     pub fn node_name(&self, node_num: u32) -> Option<&str> {

@@ -25,6 +25,7 @@
 - `nodes` command: list all mesh nodes with ID, name, battery level, SNR, hop count, and last-heard timestamp
 - `send` command: send text messages to the mesh (broadcast, by node ID, by node name, or on a specific channel)
 - `listen` command: stream and decode incoming packets in real time (text, position, telemetry, routing, node info)
+- `info` command: display local node details, firmware, capabilities, channels, device metrics, and position
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -104,6 +105,7 @@ Commands:
   nodes    List all nodes visible on the mesh
   send     Send a text message to the mesh network
   listen   Stream incoming packets in real time
+  info     Show local node and device information
 ```
 
 ### Connection examples
@@ -200,6 +202,44 @@ Example output:
 [15:30:15] !a1b2c3d4 (María) → !04e1c43b      | Routing: ACK
 ```
 
+### `info`
+
+Displays detailed information about the local node and connected device.
+
+```bash
+meshtastic-cli info
+```
+
+Example output:
+
+```
+Node
+  ID:              !04e1c43b
+  Name:            Pedro
+  Short name:      PD
+  Hardware:        HELTEC V3
+  Role:            CLIENT
+
+Firmware
+  Version:         2.5.6.abc1234
+  Reboots:         12
+
+Capabilities
+  Features:        WiFi, Bluetooth, PKC
+
+Device Metrics
+  Battery:         85%
+  Voltage:         3.90V
+  Channel util.:   12.3%
+  Uptime:          2d 5h 30m
+
+Channels
+  Ch 0:            Default (Primary, AES-256)
+  Ch 1:            Team (Secondary, AES-256)
+
+  Nodes in mesh:   8
+```
+
 ---
 
 ## Architecture
@@ -219,7 +259,7 @@ main.rs  (argument parsing + dispatch only)
               nodes.rs    (implements Command for node listing)
               send.rs     (implements Command for sending messages)
               listen.rs   (implements Command for packet streaming)
-              info.rs     (planned)
+              info.rs     (implements Command for device info display)
               ping.rs     (planned)
 ```
 
@@ -301,7 +341,8 @@ meshtastic-cli/
         ├── mod.rs           # Command trait and module exports
         ├── nodes.rs         # `nodes` command implementation
         ├── send.rs          # `send` command implementation
-        └── listen.rs        # `listen` command implementation
+        ├── listen.rs        # `listen` command implementation
+        └── info.rs          # `info` command implementation
 ```
 
 ---
@@ -315,7 +356,7 @@ The following commands are planned in priority order:
 | `nodes`         | List all mesh nodes with device and signal info       | v0.1.0     |
 | `send <msg>`    | Send a text message to the mesh                       | v0.2.0     |
 | `listen`        | Stream all incoming packets to stdout in real time    | Done       |
-| `info`          | Show local node info: ID, firmware version, channels  | Planned    |
+| `info`          | Show local node info: ID, firmware version, channels  | Done       |
 | `ping <node-id>`| Send a ping to a specific node and wait for ACK       | Planned    |
 
 ---
@@ -345,5 +386,4 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 **Stability**: Experimental — API and CLI interface may change
 
 **Next Milestones**:
-- `info` command for local node metadata
 - `ping` command with ACK waiting

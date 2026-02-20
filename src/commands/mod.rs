@@ -1,3 +1,4 @@
+mod info;
 mod listen;
 mod nodes;
 mod send;
@@ -29,6 +30,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
     match command {
         Commands::Nodes => Ok(Box::new(nodes::NodesCommand)),
         Commands::Listen => Ok(Box::new(listen::ListenCommand)),
+        Commands::Info => Ok(Box::new(info::InfoCommand)),
         Commands::Send {
             message,
             dest,

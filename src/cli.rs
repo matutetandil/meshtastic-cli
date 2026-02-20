@@ -52,4 +52,7 @@ pub enum Commands {
 
     /// Stream incoming packets from the mesh network in real time
     Listen,
+
+    /// Show local node and device information
+    Info,
 }
