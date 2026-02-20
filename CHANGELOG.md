@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Supports `--dest` (hex ID) and `--to` (name lookup) for ping destination
 - Configurable `--timeout` (default 30s) for ACK wait
 - Shared `DestinationSpec` enum and `resolve_destination()` / `parse_dest_spec()` helpers across send and ping commands
+- `config get` command to display all or individual device and module configuration sections (8 device + 13 module sections)
+- `config set` command to modify any configuration field via `section.field` key format, with automatic device reboot
+- Config and ModuleConfig packet capture during the configure handshake in `NodeDb`
+- `NodeDb::local_config()` and `NodeDb::local_module_config()` accessors
+- Enum-aware field parsing for config set (case-insensitive, supports both name and raw integer values)
+- `ConfigSection` enum with clap `ValueEnum` for tab-completable section names in `config get`
 
 ## [0.2.0] - 2026-02-20
 

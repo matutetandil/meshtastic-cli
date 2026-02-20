@@ -27,6 +27,8 @@
 - `listen` command: stream and decode incoming packets in real time (text, position, telemetry, routing, node info)
 - `info` command: display local node details, firmware, capabilities, channels, device metrics, and position
 - `ping` command: ping a specific node by ID or name, measure round-trip time, with configurable timeout
+- `config get` command: display all or individual device/module configuration sections
+- `config set` command: modify any configuration field with automatic device reboot
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -107,6 +109,7 @@ Commands:
   send     Send a text message to the mesh network
   listen   Stream incoming packets in real time
   info     Show local node and device information
+  config   Get or set device configuration
   ping     Ping a node and measure round-trip time
 ```
 
@@ -244,6 +247,87 @@ Channels
   Nodes in mesh:   8
 ```
 
+### `config`
+
+Read and write device and module configuration. Supports all 8 device config sections and 13 module config sections.
+
+#### `config get`
+
+Display current configuration. Optionally specify a section to show only that section.
+
+```bash
+# Show all configuration sections
+meshtastic-cli config get
+
+# Show a specific section
+meshtastic-cli config get lora
+meshtastic-cli config get mqtt
+meshtastic-cli config get device
+```
+
+Available sections:
+
+| Device Config | Module Config |
+|--------------|---------------|
+| `device` | `mqtt` |
+| `position` | `serial` |
+| `power` | `external-notification` |
+| `network` | `store-forward` |
+| `display` | `range-test` |
+| `lora` | `telemetry` |
+| `bluetooth` | `canned-message` |
+| `security` | `audio` |
+| | `remote-hardware` |
+| | `neighbor-info` |
+| | `ambient-lighting` |
+| | `detection-sensor` |
+| | `paxcounter` |
+
+Example output:
+
+```
+LoRa
+  region:                                  Us
+  modem_preset:                            LongFast
+  use_preset:                              true
+  hop_limit:                               3
+  tx_enabled:                              true
+  tx_power:                                30
+  ...
+```
+
+#### `config set`
+
+Set a configuration value. The key uses `section.field` format. The device will reboot after applying changes.
+
+```bash
+# Set LoRa region
+meshtastic-cli config set lora.region Eu868
+
+# Change device role
+meshtastic-cli config set device.role Router
+
+# Set hop limit
+meshtastic-cli config set lora.hop_limit 5
+
+# Enable MQTT
+meshtastic-cli config set mqtt.enabled true
+
+# Set WiFi credentials
+meshtastic-cli config set network.wifi_ssid "MyNetwork"
+meshtastic-cli config set network.wifi_psk "MyPassword"
+```
+
+For enum fields, use the human-readable name (case-insensitive). Run `config get <section>` to see current values and available field names.
+
+Example output:
+
+```
+-> Setting lora.region = Eu868
+! Device will reboot to apply changes.
+ok Configuration updated.
+```
+
 ### `ping`
 
 Sends a ping to a specific node and measures the round-trip time by waiting for an ACK.
@@ -300,6 +384,7 @@ main.rs  (argument parsing + dispatch only)
               listen.rs   (implements Command for packet streaming)
               info.rs     (implements Command for device info display)
               ping.rs     (implements Command for node ping with ACK)
+              config.rs   (implements Command for config get/set)
 ```
 
 ### Key Patterns
@@ -382,7 +467,8 @@ meshtastic-cli/
         ├── send.rs          # `send` command implementation
         ├── listen.rs        # `listen` command implementation
         ├── info.rs          # `info` command implementation
-        └── ping.rs          # `ping` command implementation
+        ├── ping.rs          # `ping` command implementation
+        └── config.rs        # `config get/set` command implementation
 ```
 
 ---
@@ -398,6 +484,7 @@ The following commands are planned in priority order:
 | `listen`        | Stream all incoming packets to stdout in real time    | Done       |
 | `info`          | Show local node info: ID, firmware version, channels  | Done       |
 | `ping <node-id>`| Send a ping to a specific node and wait for ACK       | Done       |
+| `config get/set`| Read and write device/module configuration             | Done       |
 
 ---
 

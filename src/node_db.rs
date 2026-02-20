@@ -15,6 +15,8 @@ pub struct NodeDb {
     nodes: HashMap<u32, protobufs::NodeInfo>,
     channels: Vec<protobufs::Channel>,
     metadata: Option<protobufs::DeviceMetadata>,
+    local_config: protobufs::LocalConfig,
+    local_module_config: protobufs::LocalModuleConfig,
 }
 
 impl NodeDb {
@@ -26,6 +28,8 @@ impl NodeDb {
         let mut nodes: HashMap<u32, protobufs::NodeInfo> = HashMap::new();
         let mut channels: Vec<protobufs::Channel> = Vec::new();
         let mut metadata: Option<protobufs::DeviceMetadata> = None;
+        let mut local_config = protobufs::LocalConfig::default();
+        let mut local_module_config = protobufs::LocalModuleConfig::default();
 
         loop {
             let packet = timeout(CONFIG_TIMEOUT, receiver.recv())
@@ -56,6 +60,14 @@ impl NodeDb {
                     log::debug!("Received DeviceMetadata: fw={}", meta.firmware_version);
                     metadata = Some(meta);
                 }
+                PayloadVariant::Config(cfg) => {
+                    log::debug!("Received Config packet");
+                    fold_config(&mut local_config, cfg);
+                }
+                PayloadVariant::ModuleConfig(mcfg) => {
+                    log::debug!("Received ModuleConfig packet");
+                    fold_module_config(&mut local_module_config, mcfg);
+                }
                 PayloadVariant::ConfigCompleteId(id) if id == config_id => {
                     log::debug!("Configuration complete (id={})", id);
                     break;
@@ -75,6 +87,8 @@ impl NodeDb {
             nodes,
             channels,
             metadata,
+            local_config,
+            local_module_config,
         })
     }
 
@@ -109,6 +123,14 @@ impl NodeDb {
             .map(|u| u.long_name.as_str())
     }
 
+    pub fn local_config(&self) -> &protobufs::LocalConfig {
+        &self.local_config
+    }
+
+    pub fn local_module_config(&self) -> &protobufs::LocalModuleConfig {
+        &self.local_module_config
+    }
+
     pub fn find_by_name(&self, name: &str) -> Vec<(u32, &protobufs::NodeInfo)> {
         let query = name.to_lowercase();
         self.nodes
@@ -120,5 +142,43 @@ impl NodeDb {
             })
             .map(|(&num, node)| (num, node))
             .collect()
+    }
+}
+
+fn fold_config(local: &mut protobufs::LocalConfig, cfg: protobufs::Config) {
+    use protobufs::config::PayloadVariant;
+    if let Some(variant) = cfg.payload_variant {
+        match variant {
+            PayloadVariant::Device(v) => local.device = Some(v),
+            PayloadVariant::Position(v) => local.position = Some(v),
+            PayloadVariant::Power(v) => local.power = Some(v),
+            PayloadVariant::Network(v) => local.network = Some(v),
+            PayloadVariant::Display(v) => local.display = Some(v),
+            PayloadVariant::Lora(v) => local.lora = Some(v),
+            PayloadVariant::Bluetooth(v) => local.bluetooth = Some(v),
+            PayloadVariant::Security(v) => local.security = Some(v),
+            _ => log::trace!("Skipping config variant: {:?}", variant),
+        }
+    }
+}
+
+fn fold_module_config(local: &mut protobufs::LocalModuleConfig, mcfg: protobufs::ModuleConfig) {
+    use protobufs::module_config::PayloadVariant;
+    if let Some(variant) = mcfg.payload_variant {
+        match variant {
+            PayloadVariant::Mqtt(v) => local.mqtt = Some(v),
+            PayloadVariant::Serial(v) => local.serial = Some(v),
+            PayloadVariant::ExternalNotification(v) => local.external_notification = Some(v),
+            PayloadVariant::StoreForward(v) => local.store_forward = Some(v),
+            PayloadVariant::RangeTest(v) => local.range_test = Some(v),
+            PayloadVariant::Telemetry(v) => local.telemetry = Some(v),
+            PayloadVariant::CannedMessage(v) => local.canned_message = Some(v),
+            PayloadVariant::Audio(v) => local.audio = Some(v),
+            PayloadVariant::RemoteHardware(v) => local.remote_hardware = Some(v),
+            PayloadVariant::NeighborInfo(v) => local.neighbor_info = Some(v),
+            PayloadVariant::AmbientLighting(v) => local.ambient_lighting = Some(v),
+            PayloadVariant::DetectionSensor(v) => local.detection_sensor = Some(v),
+            PayloadVariant::Paxcounter(v) => local.paxcounter = Some(v),
+        }
     }
 }

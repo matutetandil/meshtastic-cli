@@ -1,4 +1,4 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(name = "meshtastic-cli")]
@@ -56,6 +56,12 @@ pub enum Commands {
     /// Show local node and device information
     Info,
 
+    /// Get or set device configuration
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+
     /// Ping a node and wait for ACK to measure round-trip time
     Ping {
         /// Destination node ID in hex (e.g. 04e1c43b or '!04e1c43b')
@@ -70,4 +76,45 @@ pub enum Commands {
         #[arg(long, default_value_t = 30)]
         timeout: u64,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigAction {
+    /// Display current configuration
+    Get {
+        /// Config section name (e.g. device, lora, mqtt). Omit to show all.
+        section: Option<ConfigSection>,
+    },
+    /// Set a configuration value (causes device reboot)
+    Set {
+        /// Config key in section.field format (e.g. lora.region, mqtt.enabled)
+        key: String,
+        /// New value to set
+        value: String,
+    },
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ConfigSection {
+    Device,
+    Position,
+    Power,
+    Network,
+    Display,
+    Lora,
+    Bluetooth,
+    Security,
+    Mqtt,
+    Serial,
+    ExternalNotification,
+    StoreForward,
+    RangeTest,
+    Telemetry,
+    CannedMessage,
+    Audio,
+    RemoteHardware,
+    NeighborInfo,
+    AmbientLighting,
+    DetectionSensor,
+    Paxcounter,
 }

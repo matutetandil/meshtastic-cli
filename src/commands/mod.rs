@@ -1,3 +1,4 @@
+mod config;
 mod info;
 mod listen;
 mod nodes;
@@ -11,7 +12,7 @@ use meshtastic::api::ConnectedStreamApi;
 use meshtastic::packet::{PacketDestination, PacketReceiver};
 use meshtastic::types::{MeshChannel, NodeId};
 
-use crate::cli::Commands;
+use crate::cli::{Commands, ConfigAction};
 use crate::error::CliError;
 use crate::node_db::NodeDb;
 use crate::router::MeshRouter;
@@ -140,5 +141,14 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 timeout_secs: *timeout,
             }))
         }
+        Commands::Config { action } => match action {
+            ConfigAction::Get { section } => Ok(Box::new(config::ConfigGetCommand {
+                section: section.clone(),
+            })),
+            ConfigAction::Set { key, value } => Ok(Box::new(config::ConfigSetCommand {
+                key: key.clone(),
+                value: value.clone(),
+            })),
+        },
     }
 }
