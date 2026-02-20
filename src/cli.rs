@@ -62,13 +62,25 @@ pub enum Commands {
         action: ConfigAction,
     },
 
-    /// Node management (set-owner)
+    /// Node management (set-owner, remove)
     Node {
         #[command(subcommand)]
         action: NodeAction,
     },
 
-    /// Device management (reboot, shutdown)
+    /// GPS position management (get, set)
+    Position {
+        #[command(subcommand)]
+        action: PositionAction,
+    },
+
+    /// Request data from remote nodes
+    Request {
+        #[command(subcommand)]
+        action: RequestAction,
+    },
+
+    /// Device management (reboot, shutdown, factory-reset)
     Device {
         #[command(subcommand)]
         action: DeviceAction,
@@ -136,6 +148,28 @@ pub enum ConfigAction {
         /// YAML configuration file to import
         file: String,
     },
+    /// Configure licensed Ham radio mode
+    SetHam {
+        /// Amateur radio call sign (e.g. KD2ABC)
+        call_sign: String,
+
+        /// Short name (up to 5 characters). Defaults to first 4 chars of call sign.
+        #[arg(long)]
+        short: Option<String>,
+
+        /// Transmit power in dBm
+        #[arg(long)]
+        tx_power: Option<i32>,
+
+        /// LoRa frequency in MHz
+        #[arg(long)]
+        frequency: Option<f32>,
+    },
+    /// Apply channels and LoRa config from a meshtastic:// URL
+    SetUrl {
+        /// Meshtastic URL (e.g. https://meshtastic.org/e/#... or meshtastic://...)
+        url: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -148,6 +182,16 @@ pub enum NodeAction {
         /// Short name (up to 5 characters). Auto-generated from long name if omitted.
         #[arg(long)]
         short: Option<String>,
+    },
+    /// Remove a node from the local NodeDB
+    Remove {
+        /// Node ID in hex (e.g. 04e1c43b)
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Node name to remove
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
     },
 }
 
@@ -167,6 +211,10 @@ pub enum DeviceAction {
         #[arg(long, default_value_t = 5)]
         delay: i32,
     },
+    /// Factory reset configuration (restores defaults, preserves BLE bonds)
+    FactoryReset,
+    /// Clear the node database
+    ResetNodedb,
     /// Shut down the device (local or remote)
     Shutdown {
         /// Target node ID in hex (e.g. 04e1c43b). Omit to shut down local device.
@@ -180,6 +228,54 @@ pub enum DeviceAction {
         /// Delay in seconds before shutting down
         #[arg(long, default_value_t = 5)]
         delay: i32,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PositionAction {
+    /// Display current GPS position
+    Get,
+    /// Set a fixed GPS position
+    Set {
+        /// Latitude in decimal degrees (e.g. 40.4168)
+        lat: f64,
+        /// Longitude in decimal degrees (e.g. -3.7038)
+        lon: f64,
+        /// Altitude in meters above sea level
+        #[arg(default_value_t = 0)]
+        alt: i32,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RequestAction {
+    /// Request telemetry from a remote node
+    Telemetry {
+        /// Target node ID in hex
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Target node name
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+
+        /// Timeout in seconds
+        #[arg(long, default_value_t = 30)]
+        timeout: u64,
+    },
+    /// Request position from a remote node
+    Position {
+        /// Target node ID in hex
+        #[arg(long, conflicts_with = "to", required_unless_present = "to")]
+        dest: Option<String>,
+
+        /// Target node name
+        #[arg(long, conflicts_with = "dest", required_unless_present = "dest")]
+        to: Option<String>,
+
+        /// Timeout in seconds
+        #[arg(long, default_value_t = 30)]
+        timeout: u64,
     },
 }
 

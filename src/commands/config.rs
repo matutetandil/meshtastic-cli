@@ -2,6 +2,7 @@ use anyhow::bail;
 use async_trait::async_trait;
 use colored::Colorize;
 use meshtastic::protobufs;
+use meshtastic::Message;
 
 use crate::cli::ConfigSection;
 
@@ -160,6 +161,207 @@ impl Command for ConfigSetCommand {
         println!("{} Configuration updated.", "ok".green());
 
         Ok(())
+    }
+}
+
+// ── SetHamCommand ─────────────────────────────────────────────────
+
+pub struct SetHamCommand {
+    pub call_sign: String,
+    pub short_name: Option<String>,
+    pub tx_power: Option<i32>,
+    pub frequency: Option<f32>,
+}
+
+#[async_trait]
+impl Command for SetHamCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let short_name = self
+            .short_name
+            .unwrap_or_else(|| self.call_sign.chars().take(4).collect::<String>());
+
+        let ham = protobufs::HamParameters {
+            call_sign: self.call_sign.clone(),
+            tx_power: self.tx_power.unwrap_or(0),
+            frequency: self.frequency.unwrap_or(0.0),
+            short_name: short_name.clone(),
+        };
+
+        println!(
+            "{} Setting HAM mode: callsign={}, short_name={}",
+            "->".cyan(),
+            self.call_sign.bold(),
+            short_name.bold()
+        );
+
+        if let Some(power) = self.tx_power {
+            println!("  tx_power: {} dBm", power);
+        }
+        if let Some(freq) = self.frequency {
+            println!("  frequency: {} MHz", freq);
+        }
+
+        let my_id = ctx.node_db.my_node_num();
+        super::device::send_admin_message(
+            &mut ctx,
+            my_id,
+            protobufs::admin_message::PayloadVariant::SetHamMode(ham),
+        )
+        .await?;
+
+        println!(
+            "{} HAM mode configured. Device is now licensed as {}.",
+            "ok".green(),
+            self.call_sign
+        );
+
+        Ok(())
+    }
+}
+
+// ── SetUrlCommand ─────────────────────────────────────────────────
+
+pub struct SetUrlCommand {
+    pub url: String,
+}
+
+#[async_trait]
+impl Command for SetUrlCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let encoded = extract_url_payload(&self.url)?;
+        let bytes = base64_decode(&encoded)?;
+        let channel_set = protobufs::ChannelSet::decode(bytes.as_slice())
+            .map_err(|e| anyhow::anyhow!("Failed to decode channel set from URL: {}", e))?;
+
+        println!("{} Applying configuration from URL...", "->".cyan());
+
+        // Apply channels
+        let mut channel_count = 0u32;
+        for (i, settings) in channel_set.settings.iter().enumerate() {
+            let role = if i == 0 {
+                protobufs::channel::Role::Primary as i32
+            } else {
+                protobufs::channel::Role::Secondary as i32
+            };
+
+            let channel = protobufs::Channel {
+                index: i as i32,
+                role,
+                settings: Some(protobufs::ChannelSettings {
+                    psk: settings.psk.clone(),
+                    name: settings.name.clone(),
+                    id: settings.id,
+                    uplink_enabled: settings.uplink_enabled,
+                    downlink_enabled: settings.downlink_enabled,
+                    module_settings: settings.module_settings,
+                    ..Default::default()
+                }),
+            };
+
+            ctx.api
+                .update_channel_config(&mut ctx.router, channel)
+                .await?;
+            channel_count += 1;
+
+            let label = if settings.name.is_empty() {
+                "Default".to_string()
+            } else {
+                settings.name.clone()
+            };
+            println!("  {} Channel {}: {}", "ok".green(), i, label);
+        }
+
+        // Apply LoRa config if present
+        if let Some(lora) = channel_set.lora_config {
+            let config_packet = protobufs::Config {
+                payload_variant: Some(protobufs::config::PayloadVariant::Lora(lora)),
+            };
+            ctx.api
+                .update_config(&mut ctx.router, config_packet)
+                .await?;
+            println!("  {} LoRa configuration applied.", "ok".green());
+        }
+
+        println!(
+            "{} Applied {} channels from URL.",
+            "ok".green(),
+            channel_count
+        );
+        println!(
+            "{} Device will reboot to apply changes.",
+            "!".yellow().bold()
+        );
+
+        Ok(())
+    }
+}
+
+fn extract_url_payload(url: &str) -> anyhow::Result<String> {
+    // Support formats:
+    //   https://meshtastic.org/e/#PAYLOAD
+    //   meshtastic://PAYLOAD
+    //   #PAYLOAD
+    //   PAYLOAD (raw base64)
+    if let Some(payload) = url.strip_prefix("https://meshtastic.org/e/#") {
+        Ok(payload.to_string())
+    } else if let Some(payload) = url.strip_prefix("http://meshtastic.org/e/#") {
+        Ok(payload.to_string())
+    } else if let Some(payload) = url.strip_prefix("meshtastic://") {
+        Ok(payload.to_string())
+    } else if let Some(payload) = url.strip_prefix('#') {
+        Ok(payload.to_string())
+    } else {
+        // Assume raw base64
+        Ok(url.to_string())
+    }
+}
+
+fn base64_decode(input: &str) -> anyhow::Result<Vec<u8>> {
+    // Meshtastic URLs use URL-safe base64 (no padding)
+    let input = input.replace('-', "+").replace('_', "/");
+
+    // Add padding if needed
+    let padded = match input.len() % 4 {
+        2 => format!("{}==", input),
+        3 => format!("{}=", input),
+        _ => input,
+    };
+
+    // Simple base64 decoder
+    let mut result = Vec::new();
+    let chars: Vec<u8> = padded.bytes().collect();
+
+    for chunk in chars.chunks(4) {
+        if chunk.len() < 4 {
+            break;
+        }
+
+        let a = b64_val(chunk[0])?;
+        let b = b64_val(chunk[1])?;
+        let c = b64_val(chunk[2])?;
+        let d = b64_val(chunk[3])?;
+
+        result.push((a << 2) | (b >> 4));
+        if chunk[2] != b'=' {
+            result.push(((b & 0x0F) << 4) | (c >> 2));
+        }
+        if chunk[3] != b'=' {
+            result.push(((c & 0x03) << 6) | d);
+        }
+    }
+
+    Ok(result)
+}
+
+fn b64_val(c: u8) -> anyhow::Result<u8> {
+    match c {
+        b'A'..=b'Z' => Ok(c - b'A'),
+        b'a'..=b'z' => Ok(c - b'a' + 26),
+        b'0'..=b'9' => Ok(c - b'0' + 52),
+        b'+' => Ok(62),
+        b'/' => Ok(63),
+        b'=' => Ok(0),
+        _ => bail!("Invalid base64 character: {}", c as char),
     }
 }
 

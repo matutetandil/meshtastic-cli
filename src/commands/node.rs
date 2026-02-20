@@ -1,9 +1,9 @@
 use anyhow::bail;
 use async_trait::async_trait;
 use colored::Colorize;
-use meshtastic::protobufs;
+use meshtastic::protobufs::{self, admin_message};
 
-use super::{Command, CommandContext};
+use super::{resolve_destination, Command, CommandContext, DestinationSpec};
 
 // ── SetOwnerCommand ───────────────────────────────────────────────
 
@@ -64,6 +64,49 @@ impl Command for SetOwnerCommand {
             self.long_name,
             short_name
         );
+
+        Ok(())
+    }
+}
+
+// ── RemoveNodeCommand ──────────────────────────────────────────────
+
+pub struct RemoveNodeCommand {
+    pub destination: DestinationSpec,
+}
+
+#[async_trait]
+impl Command for RemoveNodeCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let (_, label) = resolve_destination(&self.destination, &ctx.node_db)?;
+
+        let target_num = match &self.destination {
+            DestinationSpec::NodeId(id) => *id,
+            DestinationSpec::NodeName(_) => {
+                let matches = match &self.destination {
+                    DestinationSpec::NodeName(name) => ctx.node_db.find_by_name(name),
+                    _ => unreachable!(),
+                };
+                matches[0].0
+            }
+            DestinationSpec::Broadcast => bail!("Must specify a node to remove via --dest or --to"),
+        };
+
+        println!(
+            "{} Removing node {} from local NodeDB...",
+            "->".cyan(),
+            label.bold()
+        );
+
+        let my_id = ctx.node_db.my_node_num();
+        super::device::send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::RemoveByNodenum(target_num),
+        )
+        .await?;
+
+        println!("{} Node {} removed.", "ok".green(), label);
 
         Ok(())
     }

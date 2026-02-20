@@ -70,6 +70,60 @@ impl Command for ShutdownCommand {
     }
 }
 
+// ── FactoryResetCommand ───────────────────────────────────────────
+
+pub struct FactoryResetCommand;
+
+#[async_trait]
+impl Command for FactoryResetCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let my_id = ctx.node_db.my_node_num();
+        let label = format!("local device (!{:08x})", my_id);
+
+        println!("{} Factory resetting {}...", "->".cyan(), label.bold());
+        println!(
+            "  {} All settings and state will be restored to defaults.",
+            "!".yellow().bold()
+        );
+
+        send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::FactoryResetConfig(5),
+        )
+        .await?;
+
+        println!("{} Factory reset command sent.", "ok".green());
+
+        Ok(())
+    }
+}
+
+// ── ResetNodeDbCommand ────────────────────────────────────────────
+
+pub struct ResetNodeDbCommand;
+
+#[async_trait]
+impl Command for ResetNodeDbCommand {
+    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+        let my_id = ctx.node_db.my_node_num();
+        let label = format!("local device (!{:08x})", my_id);
+
+        println!("{} Resetting NodeDB on {}...", "->".cyan(), label.bold());
+
+        send_admin_message(
+            &mut ctx,
+            my_id,
+            admin_message::PayloadVariant::NodedbReset(5),
+        )
+        .await?;
+
+        println!("{} NodeDB reset command sent.", "ok".green());
+
+        Ok(())
+    }
+}
+
 // ── Helpers ────────────────────────────────────────────────────────
 
 fn resolve_target(
@@ -93,7 +147,7 @@ fn resolve_target(
     }
 }
 
-async fn send_admin_message(
+pub(super) async fn send_admin_message(
     ctx: &mut CommandContext,
     target_id: u32,
     payload: admin_message::PayloadVariant,

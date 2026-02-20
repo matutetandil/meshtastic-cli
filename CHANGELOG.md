@@ -40,6 +40,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `device shutdown` command to shut down local or remote device with configurable delay (default 5s)
 - `DeviceAction` enum with `Reboot` and `Shutdown` subcommands, supporting `--dest`, `--to`, and `--delay` options
 - `node set-owner` command to set device long name and short name via `update_user()` API
+- `device factory-reset` command to restore device configuration to factory defaults
+- `device reset-nodedb` command to clear the local node database
+- `node remove` command to remove a specific node from the NodeDB by ID or name
+- `position get` command to display current GPS position
+- `position set` command to set a fixed GPS position (latitude, longitude, altitude) via `SetFixedPosition` admin message
+- `request telemetry` command to request telemetry from a remote node with timeout
+- `request position` command to request position from a remote node with timeout
+- `config set-ham` command to configure licensed Ham radio mode with callsign, TX power, and frequency
+- `config set-url` command to apply channels and LoRa configuration from a meshtastic:// URL
 - Auto-generated short name from long name when `--short` is omitted (initials for multi-word, first 4 chars for single word)
 
 ## [0.2.0] - 2026-02-20

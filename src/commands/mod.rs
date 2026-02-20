@@ -7,6 +7,8 @@ mod listen;
 mod node;
 mod nodes;
 mod ping;
+mod position;
+mod request;
 mod send;
 mod traceroute;
 
@@ -17,7 +19,9 @@ use meshtastic::api::ConnectedStreamApi;
 use meshtastic::packet::{PacketDestination, PacketReceiver};
 use meshtastic::types::{MeshChannel, NodeId};
 
-use crate::cli::{ChannelAction, Commands, ConfigAction, DeviceAction, NodeAction};
+use crate::cli::{
+    ChannelAction, Commands, ConfigAction, DeviceAction, NodeAction, PositionAction, RequestAction,
+};
 use crate::error::CliError;
 use crate::node_db::NodeDb;
 use crate::router::MeshRouter;
@@ -158,6 +162,34 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 long_name: name.clone(),
                 short_name: short.clone(),
             })),
+            NodeAction::Remove { dest, to } => {
+                let destination = parse_dest_spec(dest, to)?;
+                Ok(Box::new(node::RemoveNodeCommand { destination }))
+            }
+        },
+        Commands::Position { action } => match action {
+            PositionAction::Get => Ok(Box::new(position::PositionGetCommand)),
+            PositionAction::Set { lat, lon, alt } => Ok(Box::new(position::PositionSetCommand {
+                latitude: *lat,
+                longitude: *lon,
+                altitude: *alt,
+            })),
+        },
+        Commands::Request { action } => match action {
+            RequestAction::Telemetry { dest, to, timeout } => {
+                let destination = parse_dest_spec(dest, to)?;
+                Ok(Box::new(request::RequestTelemetryCommand {
+                    destination,
+                    timeout_secs: *timeout,
+                }))
+            }
+            RequestAction::Position { dest, to, timeout } => {
+                let destination = parse_dest_spec(dest, to)?;
+                Ok(Box::new(request::RequestPositionCommand {
+                    destination,
+                    timeout_secs: *timeout,
+                }))
+            }
         },
         Commands::Device { action } => match action {
             DeviceAction::Reboot { dest, to, delay } => {
@@ -167,6 +199,8 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                     delay_secs: *delay,
                 }))
             }
+            DeviceAction::FactoryReset => Ok(Box::new(device::FactoryResetCommand)),
+            DeviceAction::ResetNodedb => Ok(Box::new(device::ResetNodeDbCommand)),
             DeviceAction::Shutdown { dest, to, delay } => {
                 let destination = parse_dest_spec(dest, to)?;
                 Ok(Box::new(device::ShutdownCommand {
@@ -208,6 +242,20 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
             ConfigAction::Import { file } => Ok(Box::new(export_import::ImportConfigCommand {
                 file: std::path::PathBuf::from(file),
             })),
+            ConfigAction::SetHam {
+                call_sign,
+                short,
+                tx_power,
+                frequency,
+            } => Ok(Box::new(config::SetHamCommand {
+                call_sign: call_sign.clone(),
+                short_name: short.clone(),
+                tx_power: *tx_power,
+                frequency: *frequency,
+            })),
+            ConfigAction::SetUrl { url } => {
+                Ok(Box::new(config::SetUrlCommand { url: url.clone() }))
+            }
         },
     }
 }
