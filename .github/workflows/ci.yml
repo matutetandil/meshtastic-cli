@@ -18,7 +18,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install BLE dependencies
-        run: sudo apt-get update && sudo apt-get install -y libbluetooth-dev
+        run: sudo apt-get update && sudo apt-get install -y libbluetooth-dev libdbus-1-dev pkg-config
       - run: cargo build --features ble
       - run: cargo clippy --features ble -- -D warnings
       - run: cargo fmt --check
