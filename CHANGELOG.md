@@ -127,7 +127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `error.rs` module with project-wide error types
 - `commands/` module directory with one file per command following single-responsibility principles
 
-[Unreleased]: https://github.com/your-org/meshtastic-cli/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/your-org/meshtastic-cli/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/your-org/meshtastic-cli/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/your-org/meshtastic-cli/releases/tag/v0.1.0
+[Unreleased]: https://github.com/matutetandil/meshtastic-cli/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/matutetandil/meshtastic-cli/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/matutetandil/meshtastic-cli/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/matutetandil/meshtastic-cli/releases/tag/v0.1.0
