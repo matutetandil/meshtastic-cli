@@ -74,47 +74,66 @@
 
 ---
 
-## Prerequisites
-
-- **Rust toolchain** (edition 2021, stable): install via [rustup.rs](https://rustup.rs)
-- **Docker** (optional): required only for the local simulator
-- **Platform BLE libraries** (optional): required only when building with `--features ble`
-  - macOS: Core Bluetooth (built-in)
-  - Linux: BlueZ (`libbluetooth-dev`)
-  - Windows: WinRT Bluetooth (built-in)
-
----
-
 ## Installation
+
+### Pre-built binaries (recommended)
+
+Download the latest binary for your platform from [GitHub Releases](https://github.com/matutetandil/meshtastic-cli/releases):
+
+| Platform | Binary |
+|---|---|
+| Linux x86_64 | `meshtastic-cli-linux-x86_64` |
+| Linux ARM64 | `meshtastic-cli-linux-aarch64` |
+| macOS Intel | `meshtastic-cli-macos-x86_64` |
+| macOS Apple Silicon | `meshtastic-cli-macos-aarch64` |
+| Windows x86_64 | `meshtastic-cli-windows-x86_64.exe` |
+
+```bash
+# Example: Linux x86_64
+curl -L https://github.com/matutetandil/meshtastic-cli/releases/latest/download/meshtastic-cli-linux-x86_64 -o meshtastic-cli
+chmod +x meshtastic-cli
+sudo mv meshtastic-cli /usr/local/bin/
+
+# Example: macOS Apple Silicon
+curl -L https://github.com/matutetandil/meshtastic-cli/releases/latest/download/meshtastic-cli-macos-aarch64 -o meshtastic-cli
+chmod +x meshtastic-cli
+sudo mv meshtastic-cli /usr/local/bin/
+```
+
+### Install from crates.io
+
+If you have the Rust toolchain installed:
+
+```bash
+cargo install meshtastic-cli
+```
 
 ### Build from source
 
 ```bash
-git clone https://github.com/your-username/meshtastic-cli.git
+git clone https://github.com/matutetandil/meshtastic-cli.git
 cd meshtastic-cli
 cargo build --release
 ```
 
 The compiled binary will be at `target/release/meshtastic-cli`.
 
-### Build with BLE support
+### BLE support (optional)
+
+BLE connectivity requires building with the `ble` feature flag. This is not included in pre-built binaries.
 
 ```bash
+# From crates.io
+cargo install meshtastic-cli --features ble
+
+# From source
 cargo build --release --features ble
 ```
 
-BLE support is gated behind a feature flag to avoid pulling in Bluetooth dependencies when they are not needed (e.g., on CI servers or headless environments).
-
-### Install directly with Cargo
-
-```bash
-cargo install --path .
-
-# With BLE support
-cargo install --path . --features ble
-```
-
-This places the binary in `~/.cargo/bin/meshtastic-cli`, which should already be in your `PATH` if you installed Rust via rustup.
+Platform requirements for BLE:
+- **macOS**: Core Bluetooth (built-in)
+- **Linux**: BlueZ (`sudo apt install libbluetooth-dev`)
+- **Windows**: WinRT Bluetooth (built-in)
 
 ---
 
@@ -131,11 +150,9 @@ docker run -d --name meshtasticd \
   meshtastic/meshtasticd:latest meshtasticd -s
 ```
 
-3. List nodes:
+2. List nodes:
 
 ```bash
-cargo run -- nodes
-# or, after installing:
 meshtastic-cli nodes
 ```
 
