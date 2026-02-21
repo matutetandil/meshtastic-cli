@@ -118,22 +118,19 @@ cargo build --release
 
 The compiled binary will be at `target/release/meshtastic-cli`.
 
-### BLE support (optional)
+### BLE support
 
-BLE connectivity requires building with the `ble` feature flag. This is not included in pre-built binaries.
+All pre-built binaries include BLE support out of the box. No extra steps needed.
+
+When building from source, add the `ble` feature flag:
 
 ```bash
-# From crates.io
-cargo install meshtastic-cli --features ble
-
-# From source
 cargo build --release --features ble
+# or
+cargo install meshtastic-cli --features ble
 ```
 
-Platform requirements for BLE:
-- **macOS**: Core Bluetooth (built-in)
-- **Linux**: BlueZ (`sudo apt install libbluetooth-dev`)
-- **Windows**: WinRT Bluetooth (built-in)
+Linux requires BlueZ: `sudo apt install libbluetooth-dev`
 
 ---
 

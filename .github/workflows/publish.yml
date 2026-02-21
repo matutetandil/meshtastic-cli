@@ -33,7 +33,7 @@ jobs:
       - name: Run clippy
         run: cargo clippy -- -D warnings
 
-  # Build binaries for all platforms
+  # Build binaries for all platforms (with BLE support)
   build:
     name: Build ${{ matrix.target }}
     needs: check
@@ -73,17 +73,21 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Install BLE dependencies (Linux)
+        if: runner.os == 'Linux' && !matrix.cross
+        run: sudo apt-get update && sudo apt-get install -y libbluetooth-dev
+
       - name: Install cross
         if: matrix.cross
         run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Build (native)
         if: ${{ !matrix.cross }}
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --features ble --target ${{ matrix.target }}
 
       - name: Build (cross)
         if: matrix.cross
-        run: cross build --release --target ${{ matrix.target }}
+        run: cross build --release --features ble --target ${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
