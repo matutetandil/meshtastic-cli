@@ -67,7 +67,7 @@ async fn connect_ble(
 > {
     use std::time::Duration;
 
-    use meshtastic::BleId;
+    use meshtastic::utils::stream::{build_ble_stream, BleId};
 
     let ble_id = if ble_target.contains(':') {
         BleId::from_mac_address(ble_target).map_err(|e| CliError::Ble(e.to_string()))?
@@ -77,7 +77,7 @@ async fn connect_ble(
 
     log::info!("Connecting via BLE: {}", ble_id);
 
-    let ble_stream = utils::build_ble_stream(ble_id, Duration::from_secs(30))
+    let ble_stream = build_ble_stream(ble_id, Duration::from_secs(30))
         .await
         .map_err(|e| CliError::Ble(e.to_string()))?;
 
@@ -105,7 +105,7 @@ pub async fn scan_ble_devices() -> Result<(), CliError> {
     use std::time::Duration;
 
     use colored::Colorize;
-    use meshtastic::available_ble_devices;
+    use meshtastic::utils::stream::available_ble_devices;
 
     println!("{} Scanning for BLE Meshtastic devices...", "->".cyan());
 
