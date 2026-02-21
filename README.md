@@ -19,7 +19,7 @@
 
 ---
 
-## Features (v0.2.0)
+## Features (v0.3.0)
 
 - TCP connectivity to local simulators or remote devices
 - Serial connectivity to physical Meshtastic hardware
@@ -352,7 +352,7 @@ meshtastic-cli support
 Example output:
 
 ```
-meshtastic-cli v0.2.0
+meshtastic-cli v0.3.0
 
 Device
   Node ID:        !04e1c43b
@@ -1607,7 +1607,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## Project Status
 
-**Current Version**: 0.2.0
+**Current Version**: 0.3.0
 **Development Status**: Active development
 **Stability**: Experimental — API and CLI interface may change
 

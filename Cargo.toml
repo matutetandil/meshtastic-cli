@@ -1,6 +1,6 @@
 [package]
 name = "meshtastic-cli"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "A CLI tool for interacting with Meshtastic mesh networking devices"
 license = "MIT"
