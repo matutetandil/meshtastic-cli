@@ -15,7 +15,7 @@ pub struct SetOwnerCommand {
 
 #[async_trait]
 impl Command for SetOwnerCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         if self.long_name.len() > 40 {
             bail!(
                 "Long name must be 40 characters or less, got {}",
@@ -78,9 +78,9 @@ pub struct RemoveNodeCommand {
 
 #[async_trait]
 impl Command for RemoveNodeCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
-        let target_num = resolve_node_num(&self.destination, &ctx)?;
-        let label = format_node_label(target_num, &ctx);
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
+        let target_num = resolve_node_num(&self.destination, ctx)?;
+        let label = format_node_label(target_num, ctx);
 
         let my_id = ctx.node_db.my_node_num();
 
@@ -91,7 +91,7 @@ impl Command for RemoveNodeCommand {
         );
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::RemoveByNodenum(target_num),
         )
@@ -111,16 +111,16 @@ pub struct SetFavoriteCommand {
 
 #[async_trait]
 impl Command for SetFavoriteCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
-        let target_num = resolve_node_num(&self.destination, &ctx)?;
-        let label = format_node_label(target_num, &ctx);
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
+        let target_num = resolve_node_num(&self.destination, ctx)?;
+        let label = format_node_label(target_num, ctx);
 
         let my_id = ctx.node_db.my_node_num();
 
         println!("{} Setting {} as favorite...", "->".cyan(), label.bold());
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::SetFavoriteNode(target_num),
         )
@@ -139,9 +139,9 @@ pub struct RemoveFavoriteCommand {
 
 #[async_trait]
 impl Command for RemoveFavoriteCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
-        let target_num = resolve_node_num(&self.destination, &ctx)?;
-        let label = format_node_label(target_num, &ctx);
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
+        let target_num = resolve_node_num(&self.destination, ctx)?;
+        let label = format_node_label(target_num, ctx);
 
         let my_id = ctx.node_db.my_node_num();
 
@@ -152,7 +152,7 @@ impl Command for RemoveFavoriteCommand {
         );
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::RemoveFavoriteNode(target_num),
         )
@@ -171,16 +171,16 @@ pub struct SetIgnoredCommand {
 
 #[async_trait]
 impl Command for SetIgnoredCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
-        let target_num = resolve_node_num(&self.destination, &ctx)?;
-        let label = format_node_label(target_num, &ctx);
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
+        let target_num = resolve_node_num(&self.destination, ctx)?;
+        let label = format_node_label(target_num, ctx);
 
         let my_id = ctx.node_db.my_node_num();
 
         println!("{} Setting {} as ignored...", "->".cyan(), label.bold());
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::SetIgnoredNode(target_num),
         )
@@ -199,9 +199,9 @@ pub struct RemoveIgnoredCommand {
 
 #[async_trait]
 impl Command for RemoveIgnoredCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
-        let target_num = resolve_node_num(&self.destination, &ctx)?;
-        let label = format_node_label(target_num, &ctx);
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
+        let target_num = resolve_node_num(&self.destination, ctx)?;
+        let label = format_node_label(target_num, ctx);
 
         let my_id = ctx.node_db.my_node_num();
 
@@ -212,7 +212,7 @@ impl Command for RemoveIgnoredCommand {
         );
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::RemoveIgnoredNode(target_num),
         )
@@ -231,7 +231,7 @@ pub struct SetUnmessageableCommand {
 
 #[async_trait]
 impl Command for SetUnmessageableCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let existing_user = ctx
             .node_db
             .local_node()

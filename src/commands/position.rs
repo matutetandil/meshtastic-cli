@@ -2,8 +2,24 @@ use anyhow::bail;
 use async_trait::async_trait;
 use colored::Colorize;
 use meshtastic::protobufs::{self, admin_message};
+use serde::Serialize;
 
 use super::{Command, CommandContext};
+
+#[derive(Serialize)]
+struct PositionJson {
+    latitude: f64,
+    longitude: f64,
+    altitude: i32,
+    sats_in_view: u32,
+    fix_quality: u32,
+    fix_type: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gps_accuracy: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ground_speed: Option<u32>,
+    location_source: String,
+}
 
 /// Parse position flags from either a numeric bitmask or comma-separated flag names.
 pub fn parse_position_flags(input: &str) -> anyhow::Result<u32> {
@@ -49,13 +65,13 @@ pub struct PositionRemoveCommand;
 
 #[async_trait]
 impl Command for PositionRemoveCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
 
         println!("{} Removing fixed position...", "->".cyan());
 
         super::device::send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::RemoveFixedPosition(true),
         )
@@ -76,19 +92,41 @@ pub struct PositionGetCommand;
 
 #[async_trait]
 impl Command for PositionGetCommand {
-    async fn execute(self: Box<Self>, ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let local = ctx.node_db.local_node();
 
         let position = local.and_then(|n| n.position);
 
         match position {
             Some(pos) => {
-                println!("{}", "Position".bold().underline());
-
                 let lat = pos.latitude_i.unwrap_or(0) as f64 / 1e7;
                 let lon = pos.longitude_i.unwrap_or(0) as f64 / 1e7;
                 let alt = pos.altitude.unwrap_or(0);
+                let source = protobufs::position::LocSource::try_from(pos.location_source)
+                    .map(|s| s.as_str_name().to_string())
+                    .unwrap_or_else(|_| pos.location_source.to_string());
 
+                if ctx.json {
+                    let json = PositionJson {
+                        latitude: lat,
+                        longitude: lon,
+                        altitude: alt,
+                        sats_in_view: pos.sats_in_view,
+                        fix_quality: pos.fix_quality,
+                        fix_type: pos.fix_type,
+                        gps_accuracy: if pos.gps_accuracy > 0 {
+                            Some(pos.gps_accuracy)
+                        } else {
+                            None
+                        },
+                        ground_speed: pos.ground_speed.filter(|&v| v > 0),
+                        location_source: source,
+                    };
+                    println!("{}", serde_json::to_string_pretty(&json)?);
+                    return Ok(());
+                }
+
+                println!("{}", "Position".bold().underline());
                 println!("  {:<20} {:.7}", "latitude:".dimmed(), lat);
                 println!("  {:<20} {:.7}", "longitude:".dimmed(), lon);
                 println!("  {:<20} {} m", "altitude:".dimmed(), alt);
@@ -106,13 +144,13 @@ impl Command for PositionGetCommand {
                         pos.ground_speed.unwrap_or(0)
                     );
                 }
-
-                let source = protobufs::position::LocSource::try_from(pos.location_source)
-                    .map(|s| s.as_str_name().to_string())
-                    .unwrap_or_else(|_| pos.location_source.to_string());
                 println!("  {:<20} {}", "location_source:".dimmed(), source);
             }
             None => {
+                if ctx.json {
+                    println!("null");
+                    return Ok(());
+                }
                 println!("{}", "(no position available)".dimmed());
             }
         }
@@ -132,7 +170,7 @@ pub struct PositionSetCommand {
 
 #[async_trait]
 impl Command for PositionSetCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let lat_i = (self.latitude * 1e7) as i32;
         let lon_i = (self.longitude * 1e7) as i32;
 
@@ -158,7 +196,7 @@ impl Command for PositionSetCommand {
 
         let my_id = ctx.node_db.my_node_num();
         super::device::send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::SetFixedPosition(position),
         )

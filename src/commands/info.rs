@@ -1,18 +1,142 @@
 use async_trait::async_trait;
 use colored::Colorize;
 use meshtastic::protobufs::{self, channel, HardwareModel};
+use serde::Serialize;
 
 use super::{Command, CommandContext};
 
 pub struct InfoCommand;
 
+#[derive(Serialize)]
+struct InfoJson {
+    node_id: String,
+    num: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    long_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    short_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hw_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    role: Option<String>,
+    is_licensed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    firmware_version: Option<String>,
+    reboot_count: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    battery_level: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    voltage: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    channel_utilization: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    air_util_tx: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    uptime_seconds: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    latitude: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    longitude: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    altitude: Option<i32>,
+    channels: Vec<ChannelInfoJson>,
+    nodes_in_mesh: usize,
+}
+
+#[derive(Serialize)]
+struct ChannelInfoJson {
+    index: i32,
+    name: String,
+    role: String,
+    encryption: String,
+}
+
 #[async_trait]
 impl Command for InfoCommand {
-    async fn execute(self: Box<Self>, ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let node_db = &ctx.node_db;
         let my_info = node_db.my_node_info();
         let local_node = node_db.local_node();
         let metadata = node_db.metadata();
+
+        if ctx.json {
+            let user = local_node.and_then(|n| n.user.as_ref());
+            let metrics = local_node.and_then(|n| n.device_metrics.as_ref());
+            let pos = local_node.and_then(|n| n.position.as_ref());
+
+            let (lat, lon, alt) = pos
+                .map(|p| {
+                    let la = p.latitude_i.unwrap_or(0) as f64 / 1e7;
+                    let lo = p.longitude_i.unwrap_or(0) as f64 / 1e7;
+                    if la == 0.0 && lo == 0.0 {
+                        (None, None, None)
+                    } else {
+                        (Some(la), Some(lo), p.altitude)
+                    }
+                })
+                .unwrap_or((None, None, None));
+
+            let channels: Vec<ChannelInfoJson> = node_db
+                .channels()
+                .iter()
+                .filter(|c| c.role != channel::Role::Disabled as i32)
+                .map(|ch| {
+                    let settings = ch.settings.as_ref();
+                    ChannelInfoJson {
+                        index: ch.index,
+                        name: settings
+                            .map(|s| {
+                                if s.name.is_empty() {
+                                    "Default".to_string()
+                                } else {
+                                    s.name.clone()
+                                }
+                            })
+                            .unwrap_or_else(|| "Default".to_string()),
+                        role: match channel::Role::try_from(ch.role) {
+                            Ok(channel::Role::Primary) => "Primary".to_string(),
+                            Ok(channel::Role::Secondary) => "Secondary".to_string(),
+                            _ => "Unknown".to_string(),
+                        },
+                        encryption: settings
+                            .map(|s| match s.psk.len() {
+                                0 => "None",
+                                1 => "Default key",
+                                16 => "AES-128",
+                                32 => "AES-256",
+                                _ => "Custom",
+                            })
+                            .unwrap_or("Unknown")
+                            .to_string(),
+                    }
+                })
+                .collect();
+
+            let info = InfoJson {
+                node_id: format!("!{:08x}", my_info.my_node_num),
+                num: my_info.my_node_num,
+                long_name: user.map(|u| u.long_name.clone()),
+                short_name: user.map(|u| u.short_name.clone()),
+                hw_model: user.map(|u| format_hardware(u.hw_model)),
+                role: user.map(|u| format_role(u.role)),
+                is_licensed: user.is_some_and(|u| u.is_licensed),
+                firmware_version: metadata.map(|m| m.firmware_version.clone()),
+                reboot_count: my_info.reboot_count,
+                battery_level: metrics.and_then(|m| m.battery_level),
+                voltage: metrics.and_then(|m| m.voltage),
+                channel_utilization: metrics.and_then(|m| m.channel_utilization),
+                air_util_tx: metrics.and_then(|m| m.air_util_tx),
+                uptime_seconds: metrics.and_then(|m| m.uptime_seconds),
+                latitude: lat,
+                longitude: lon,
+                altitude: alt,
+                channels,
+                nodes_in_mesh: node_db.nodes().len(),
+            };
+
+            println!("{}", serde_json::to_string_pretty(&info)?);
+            return Ok(());
+        }
 
         print_section("Node");
         print_field("ID", &format!("!{:08x}", my_info.my_node_num));

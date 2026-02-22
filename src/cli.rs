@@ -1,4 +1,4 @@
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(name = "meshtastic-cli")]
@@ -37,6 +37,10 @@ pub struct ConnectionArgs {
     /// Skip collecting nodes during connection (faster startup)
     #[arg(long)]
     pub no_nodes: bool,
+
+    /// Output results as JSON instead of human-readable text
+    #[arg(long, global = true)]
+    pub json: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -79,7 +83,11 @@ pub enum Commands {
     },
 
     /// Stream incoming packets from the mesh network in real time
-    Listen,
+    Listen {
+        /// Write packets as JSON Lines to a log file
+        #[arg(long)]
+        log: Option<String>,
+    },
 
     /// Show local node and device information
     Info,
@@ -131,6 +139,40 @@ pub enum Commands {
 
     /// Print diagnostic info for support/troubleshooting
     Support,
+
+    /// Interactive REPL shell with command history and tab completion
+    Shell,
+
+    /// Manage persistent CLI configuration file (~/.config/meshtastic-cli/config.toml)
+    ConfigFile {
+        #[command(subcommand)]
+        action: ConfigFileAction,
+    },
+
+    /// Bridge mesh packets to/from an MQTT broker
+    Mqtt {
+        #[command(subcommand)]
+        action: MqttAction,
+    },
+
+    /// Live-updating node table (refreshes periodically)
+    Watch {
+        /// Refresh interval in seconds
+        #[arg(long, default_value_t = 5)]
+        interval: u64,
+    },
+
+    /// Waypoint management (send, delete, list)
+    Waypoint {
+        #[command(subcommand)]
+        action: WaypointAction,
+    },
+
+    /// Generate shell completions for the given shell
+    Completions {
+        /// Shell to generate completions for
+        shell: clap_complete::Shell,
+    },
 
     /// Trace route to a node, showing each hop with SNR
     Traceroute {
@@ -488,6 +530,107 @@ pub enum ChannelAction {
 }
 
 #[derive(Subcommand, Debug)]
+pub enum MqttAction {
+    /// Start a bidirectional MQTT bridge
+    Bridge {
+        /// MQTT broker hostname or IP
+        #[arg(long, default_value = "localhost")]
+        broker: String,
+
+        /// MQTT broker port
+        #[arg(long, default_value_t = 1883)]
+        port: u16,
+
+        /// Topic prefix for all MQTT messages
+        #[arg(long, default_value = "meshtastic")]
+        topic: String,
+
+        /// MQTT username
+        #[arg(long)]
+        username: Option<String>,
+
+        /// MQTT password
+        #[arg(long)]
+        password: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum WaypointAction {
+    /// Send a waypoint to the mesh
+    Send {
+        /// Latitude in decimal degrees
+        lat: f64,
+        /// Longitude in decimal degrees
+        lon: f64,
+        /// Waypoint name (max 30 chars)
+        #[arg(long)]
+        name: String,
+        /// Description (max 100 chars)
+        #[arg(long, default_value = "")]
+        description: String,
+        /// Destination node ID in hex. Omit to broadcast.
+        #[arg(long, conflicts_with = "to")]
+        dest: Option<String>,
+        /// Destination node name. Omit to broadcast.
+        #[arg(long, conflicts_with = "dest")]
+        to: Option<String>,
+        /// Icon as emoji character (e.g. "📍")
+        #[arg(long)]
+        icon: Option<String>,
+        /// Hours until waypoint expires (0 = no expiry)
+        #[arg(long)]
+        expire: Option<u32>,
+        /// Channel index (0-7)
+        #[arg(long, default_value_t = 0)]
+        channel: u32,
+        /// Lock waypoint to this node (only this node can edit it)
+        #[arg(long)]
+        locked: bool,
+    },
+    /// Delete a waypoint by ID
+    Delete {
+        /// Waypoint ID to delete
+        id: u32,
+        /// Destination node ID in hex. Omit to broadcast.
+        #[arg(long, conflicts_with = "to")]
+        dest: Option<String>,
+        /// Destination node name. Omit to broadcast.
+        #[arg(long, conflicts_with = "dest")]
+        to: Option<String>,
+        /// Channel index (0-7)
+        #[arg(long, default_value_t = 0)]
+        channel: u32,
+    },
+    /// Listen for incoming waypoints
+    List {
+        /// Timeout in seconds to listen
+        #[arg(long, default_value_t = 60)]
+        timeout: u64,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigFileAction {
+    /// Show current configuration
+    Show,
+    /// Set a configuration value
+    Set {
+        /// Config key (host, port, serial, ble, json)
+        key: String,
+        /// Value to set
+        value: String,
+    },
+    /// Remove a configuration value (reset to default)
+    Unset {
+        /// Config key to remove (host, port, serial, ble, json)
+        key: String,
+    },
+    /// Print the config file path
+    Path,
+}
+
+#[derive(Subcommand, Debug)]
 pub enum GpioAction {
     /// Write GPIO pin values on a remote node
     Write {
@@ -539,6 +682,17 @@ pub enum GpioAction {
         #[arg(long)]
         mask: String,
     },
+}
+
+impl Cli {
+    pub fn generate_completions(shell: clap_complete::Shell) {
+        clap_complete::generate(
+            shell,
+            &mut Cli::command(),
+            "meshtastic-cli",
+            &mut std::io::stdout(),
+        );
+    }
 }
 
 #[derive(Debug, Clone, ValueEnum)]

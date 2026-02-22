@@ -5,6 +5,7 @@ mod export_import;
 mod gpio;
 mod info;
 mod listen;
+mod mqtt_bridge;
 mod node;
 mod nodes;
 mod ping;
@@ -12,8 +13,11 @@ mod position;
 mod reply;
 mod request;
 mod send;
+mod shell;
 mod support;
 mod traceroute;
+mod watch;
+mod waypoint;
 
 use anyhow::bail;
 use async_trait::async_trait;
@@ -23,8 +27,8 @@ use meshtastic::packet::{PacketDestination, PacketReceiver};
 use meshtastic::types::{MeshChannel, NodeId};
 
 use crate::cli::{
-    ChannelAction, Commands, ConfigAction, DeviceAction, GpioAction, ModemPresetArg, NodeAction,
-    PositionAction, RequestAction, TelemetryTypeArg,
+    ChannelAction, Commands, ConfigAction, DeviceAction, GpioAction, ModemPresetArg, MqttAction,
+    NodeAction, PositionAction, RequestAction, TelemetryTypeArg, WaypointAction,
 };
 use crate::error::CliError;
 use crate::node_db::NodeDb;
@@ -36,11 +40,12 @@ pub struct CommandContext {
     pub node_db: NodeDb,
     pub packet_receiver: PacketReceiver,
     pub router: MeshRouter,
+    pub json: bool,
 }
 
 #[async_trait]
 pub trait Command {
-    async fn execute(self: Box<Self>, ctx: CommandContext) -> anyhow::Result<()>;
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()>;
 }
 
 pub enum DestinationSpec {
@@ -126,7 +131,7 @@ fn parse_dest_spec(
     }
 }
 
-pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> {
+pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, CliError> {
     match command {
         Commands::Nodes { fields } => {
             let parsed_fields = fields
@@ -136,8 +141,11 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 fields: parsed_fields,
             }))
         }
-        Commands::Listen => Ok(Box::new(listen::ListenCommand)),
+        Commands::Listen { log } => Ok(Box::new(listen::ListenCommand {
+            log_path: log.as_ref().map(std::path::PathBuf::from),
+        })),
         Commands::Reply => Ok(Box::new(reply::ReplyCommand)),
+        Commands::Shell => Ok(Box::new(shell::ShellCommand)),
         Commands::Support => Ok(Box::new(support::SupportCommand)),
         Commands::Gpio { action } => match action {
             GpioAction::Write {
@@ -182,6 +190,24 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 }))
             }
         },
+        Commands::Mqtt { action } => match action {
+            MqttAction::Bridge {
+                broker,
+                port,
+                topic,
+                username,
+                password,
+            } => Ok(Box::new(mqtt_bridge::MqttBridgeCommand {
+                broker: broker.clone(),
+                port: *port,
+                topic_prefix: topic.clone(),
+                username: username.clone(),
+                password: password.clone(),
+            })),
+        },
+        Commands::Watch { interval } => Ok(Box::new(watch::WatchCommand {
+            interval_secs: *interval,
+        })),
         Commands::Info => Ok(Box::new(info::InfoCommand)),
         Commands::Send {
             message,
@@ -425,5 +451,56 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command>, CliError> 
                 Ok(Box::new(config::ChAddUrlCommand { url: url.clone() }))
             }
         },
+        Commands::Waypoint { action } => match action {
+            WaypointAction::Send {
+                lat,
+                lon,
+                name,
+                description,
+                dest,
+                to,
+                icon,
+                expire,
+                channel,
+                locked,
+            } => {
+                let destination = parse_dest_spec(dest, to)?;
+                let mesh_channel = MeshChannel::new(*channel)
+                    .map_err(|e| CliError::InvalidArgument(format!("Invalid channel: {}", e)))?;
+                Ok(Box::new(waypoint::WaypointSendCommand {
+                    latitude: *lat,
+                    longitude: *lon,
+                    name: name.clone(),
+                    description: description.clone(),
+                    destination,
+                    icon: icon.clone(),
+                    expire_hours: *expire,
+                    channel: mesh_channel,
+                    locked: *locked,
+                }))
+            }
+            WaypointAction::Delete {
+                id,
+                dest,
+                to,
+                channel,
+            } => {
+                let destination = parse_dest_spec(dest, to)?;
+                let mesh_channel = MeshChannel::new(*channel)
+                    .map_err(|e| CliError::InvalidArgument(format!("Invalid channel: {}", e)))?;
+                Ok(Box::new(waypoint::WaypointDeleteCommand {
+                    id: *id,
+                    destination,
+                    channel: mesh_channel,
+                }))
+            }
+            WaypointAction::List { timeout } => Ok(Box::new(waypoint::WaypointListCommand {
+                timeout_secs: *timeout,
+            })),
+        },
+        Commands::Completions { .. } | Commands::ConfigFile { .. } => {
+            // Handled in main.rs before connection is established
+            unreachable!("This command should be handled before create_command")
+        }
     }
 }

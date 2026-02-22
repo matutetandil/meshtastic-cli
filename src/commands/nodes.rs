@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use colored::Colorize;
 use meshtastic::protobufs::{self, HardwareModel, NodeInfo};
+use serde::Serialize;
 
 use super::{Command, CommandContext};
 
@@ -22,14 +23,98 @@ pub struct NodesCommand {
     pub fields: Option<Vec<String>>,
 }
 
+#[derive(Serialize)]
+struct NodeJson {
+    id: String,
+    num: u32,
+    name: String,
+    short_name: String,
+    hw_model: String,
+    role: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    battery: Option<u32>,
+    snr: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hops: Option<u32>,
+    last_heard: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    latitude: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    longitude: Option<f64>,
+    is_local: bool,
+}
+
+fn node_to_json(node: &NodeInfo, is_local: bool) -> NodeJson {
+    let user = node.user.as_ref();
+    let pos = node.position.as_ref();
+
+    let (lat, lon) = pos
+        .map(|p| {
+            let la = p.latitude_i.unwrap_or(0) as f64 / 1e7;
+            let lo = p.longitude_i.unwrap_or(0) as f64 / 1e7;
+            if la == 0.0 && lo == 0.0 {
+                (None, None)
+            } else {
+                (Some(la), Some(lo))
+            }
+        })
+        .unwrap_or((None, None));
+
+    NodeJson {
+        id: format!("!{:08x}", node.num),
+        num: node.num,
+        name: user
+            .map(|u| u.long_name.clone())
+            .unwrap_or_else(|| "Unknown".into()),
+        short_name: user.map(|u| u.short_name.clone()).unwrap_or_default(),
+        hw_model: user
+            .map(|u| {
+                HardwareModel::try_from(u.hw_model)
+                    .map(|m| m.as_str_name().to_string())
+                    .unwrap_or_else(|_| format!("Unknown({})", u.hw_model))
+            })
+            .unwrap_or_else(|| "N/A".into()),
+        role: user
+            .map(|u| {
+                protobufs::config::device_config::Role::try_from(u.role)
+                    .map(|r| format!("{:?}", r))
+                    .unwrap_or_else(|_| u.role.to_string())
+            })
+            .unwrap_or_else(|| "N/A".into()),
+        battery: node.device_metrics.as_ref().and_then(|m| m.battery_level),
+        snr: node.snr,
+        hops: node.hops_away,
+        last_heard: node.last_heard,
+        latitude: lat,
+        longitude: lon,
+        is_local,
+    }
+}
+
 #[async_trait]
 impl Command for NodesCommand {
-    async fn execute(self: Box<Self>, ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let local_node_num = ctx.node_db.my_node_num();
         let nodes = ctx.node_db.nodes();
 
         if nodes.is_empty() {
-            println!("No nodes found in mesh.");
+            if ctx.json {
+                println!("[]");
+            } else {
+                println!("No nodes found in mesh.");
+            }
+            return Ok(());
+        }
+
+        let mut sorted_nodes: Vec<_> = nodes.values().collect();
+        sorted_nodes.sort_by_key(|n| n.num);
+
+        if ctx.json {
+            let json_nodes: Vec<NodeJson> = sorted_nodes
+                .iter()
+                .map(|n| node_to_json(n, n.num == local_node_num))
+                .collect();
+            println!("{}", serde_json::to_string_pretty(&json_nodes)?);
             return Ok(());
         }
 
@@ -38,7 +123,6 @@ impl Command for NodesCommand {
             None => DEFAULT_FIELDS.to_vec(),
         };
 
-        // Validate fields
         for f in &fields {
             if !ALL_FIELDS.contains(f) {
                 anyhow::bail!(
@@ -49,14 +133,10 @@ impl Command for NodesCommand {
             }
         }
 
-        // Print header
         let header = build_header(&fields);
         println!("{header}");
         let sep_len: usize = fields.iter().map(|f| field_width(f) + 1).sum();
         println!("{}", "-".repeat(sep_len));
-
-        let mut sorted_nodes: Vec<_> = nodes.values().collect();
-        sorted_nodes.sort_by_key(|n| n.num);
 
         for node in sorted_nodes {
             let is_local = node.num == local_node_num;

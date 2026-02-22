@@ -8,8 +8,28 @@ use meshtastic::protobufs::{self, channel, ChannelSettings};
 use meshtastic::Message;
 use qrcode::render::svg;
 use qrcode::QrCode;
+use serde::Serialize;
 
 use super::{Command, CommandContext};
+
+#[derive(Serialize)]
+struct ChannelListJson {
+    index: i32,
+    name: String,
+    role: String,
+    encryption: String,
+    uplink_enabled: bool,
+    downlink_enabled: bool,
+}
+
+#[derive(Serialize)]
+struct ChannelQrJson {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    channel_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    channel_index: Option<i32>,
+    url: String,
+}
 
 // ── ChannelListCommand ─────────────────────────────────────────────
 
@@ -17,11 +37,49 @@ pub struct ChannelListCommand;
 
 #[async_trait]
 impl Command for ChannelListCommand {
-    async fn execute(self: Box<Self>, ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let channels = ctx.node_db.channels();
 
         if channels.is_empty() {
-            println!("{}", "(no channels configured)".dimmed());
+            if ctx.json {
+                println!("[]");
+            } else {
+                println!("{}", "(no channels configured)".dimmed());
+            }
+            return Ok(());
+        }
+
+        if ctx.json {
+            let json_channels: Vec<ChannelListJson> = channels
+                .iter()
+                .filter(|ch| ch.role != channel::Role::Disabled as i32)
+                .map(|ch| {
+                    let settings = ch.settings.as_ref();
+                    ChannelListJson {
+                        index: ch.index,
+                        name: settings
+                            .map(|s| {
+                                if s.name.is_empty() {
+                                    "Default".to_string()
+                                } else {
+                                    s.name.clone()
+                                }
+                            })
+                            .unwrap_or_else(|| "Default".to_string()),
+                        role: match channel::Role::try_from(ch.role) {
+                            Ok(channel::Role::Primary) => "Primary".to_string(),
+                            Ok(channel::Role::Secondary) => "Secondary".to_string(),
+                            _ => "Unknown".to_string(),
+                        },
+                        encryption: settings
+                            .map(|s| format_psk(&s.psk))
+                            .unwrap_or_else(|| "Unknown".to_string()),
+                        uplink_enabled: settings.is_some_and(|s| s.uplink_enabled),
+                        downlink_enabled: settings.is_some_and(|s| s.downlink_enabled),
+                    }
+                })
+                .collect();
+            println!("{}", serde_json::to_string_pretty(&json_channels)?);
             return Ok(());
         }
 
@@ -44,7 +102,7 @@ pub struct ChannelAddCommand {
 
 #[async_trait]
 impl Command for ChannelAddCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         if self.name.len() > 11 {
             bail!(
                 "Channel name must be 11 characters or less, got {}",
@@ -97,7 +155,7 @@ pub struct ChannelDelCommand {
 
 #[async_trait]
 impl Command for ChannelDelCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         if self.index == 0 {
             bail!(
                 "Cannot delete primary channel (index 0). Use 'channel set' to modify it instead."
@@ -149,7 +207,7 @@ pub struct ChannelSetCommand {
 
 #[async_trait]
 impl Command for ChannelSetCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         if self.index > 7 {
             bail!("Channel index must be 0-7, got {}", self.index);
         }
@@ -234,7 +292,7 @@ pub struct ChannelQrCommand {
 
 #[async_trait]
 impl Command for ChannelQrCommand {
-    async fn execute(self: Box<Self>, ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let channels = ctx.node_db.channels();
         let lora_config = ctx.node_db.local_config().lora.clone();
 
@@ -251,6 +309,34 @@ impl Command for ChannelQrCommand {
         if self.all {
             if self.output.is_some() {
                 bail!("--all and --output cannot be used together");
+            }
+
+            if ctx.json {
+                let mut results = Vec::new();
+                for ch in &active_channels {
+                    let Some(settings) = ch.settings.clone() else {
+                        continue;
+                    };
+                    let name = if settings.name.is_empty() {
+                        "Default".to_string()
+                    } else {
+                        settings.name.clone()
+                    };
+                    let channel_set = protobufs::ChannelSet {
+                        settings: vec![settings],
+                        lora_config: lora_config.clone(),
+                    };
+                    let encoded = channel_set.encode_to_vec();
+                    let b64 = base64_url_encode(&encoded);
+                    let url = format!("https://meshtastic.org/e/#{}", b64);
+                    results.push(ChannelQrJson {
+                        channel_name: Some(name),
+                        channel_index: Some(ch.index),
+                        url,
+                    });
+                }
+                println!("{}", serde_json::to_string_pretty(&results)?);
+                return Ok(());
             }
 
             for ch in &active_channels {
@@ -293,6 +379,16 @@ impl Command for ChannelQrCommand {
             let encoded = channel_set.encode_to_vec();
             let b64 = base64_url_encode(&encoded);
             let url = format!("https://meshtastic.org/e/#{}", b64);
+
+            if ctx.json {
+                let result = ChannelQrJson {
+                    channel_name: None,
+                    channel_index: None,
+                    url,
+                };
+                println!("{}", serde_json::to_string_pretty(&result)?);
+                return Ok(());
+            }
 
             let code = QrCode::new(url.as_bytes())?;
 

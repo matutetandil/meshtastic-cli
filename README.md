@@ -25,9 +25,10 @@
 - Serial connectivity to physical Meshtastic hardware
 - BLE connectivity to nearby devices (requires `--features ble` build)
 - `--no-nodes` flag: skip node collection on startup for faster command execution
+- `--json` flag: output results as JSON for all data-returning commands (scriptable pipelines)
 - `nodes` command: list all mesh nodes with ID, name, battery level, SNR, hop count, and last-heard timestamp; supports `--fields` column filtering
 - `send` command: send text messages to the mesh (broadcast, by node ID, by node name, or on a specific channel); supports `--ack` for delivery confirmation and `--private` for private-port messaging
-- `listen` command: stream and decode incoming packets in real time (text, position, telemetry, routing, node info)
+- `listen` command: stream and decode incoming packets in real time (text, position, telemetry, routing, node info); supports `--log` to write packets as JSON Lines to a file
 - `info` command: display local node details, firmware, capabilities, channels, device metrics, and position
 - `ping` command: ping a specific node by ID or name, measure round-trip time, with configurable timeout
 - `config get` command: display all or individual device/module configuration sections
@@ -69,6 +70,12 @@
 - `reply` command: auto-reply mode — listens for incoming text messages and responds with signal info (SNR, RSSI, hops)
 - `support` command: display diagnostic info (CLI version, firmware, hardware, channels, known nodes, region, modem preset)
 - `gpio write/read/watch` commands: remote GPIO pin operations on mesh nodes
+- `completions` command: generate shell completion scripts for bash, zsh, fish, PowerShell, and Elvish
+- `config-file` command: manage persistent CLI configuration at `~/.config/meshtastic-cli/config.toml` (show, set, unset, path)
+- `waypoint` command: waypoint management — send, delete, and list waypoints on the mesh
+- `watch` command: live-updating node table with periodic refresh (replaces the static `nodes` output)
+- `mqtt bridge` command: bidirectional MQTT bridge — republish mesh packets to an MQTT broker and inject MQTT messages into the mesh
+- `shell` command: interactive REPL with command history and tab completion for exploratory sessions
 - Colored terminal output for readability
 - Docker simulator support for local development without hardware
 
@@ -173,25 +180,32 @@ Options:
   --ble <NAME|MAC>     BLE device name or MAC address (requires --features ble build)
   --ble-scan           Scan for nearby BLE Meshtastic devices and list them
   --no-nodes           Skip node collection during connection (faster startup)
+  --json               Output results as JSON instead of formatted text
   -h, --help           Print help
   -V, --version        Print version
 
 Commands:
-  nodes       List all nodes visible on the mesh
-  send        Send a text message to the mesh network
-  listen      Stream incoming packets in real time
-  info        Show local node and device information
-  reply       Auto-reply to incoming messages with signal info
-  support     Display diagnostic info about the connected device and CLI
-  config      Get, set, export, import, set-ham, set-url, begin-edit, commit-edit, set-modem-preset, ch-add-url
-  node        Node management (set-owner, remove, set-favorite, remove-favorite, set-ignored, remove-ignored)
-  device      Device management (reboot, reboot-ota, enter-dfu, shutdown, factory-reset, factory-reset-device, reset-nodedb, set-time, set-canned-message, get-canned-message, set-ringtone, get-ringtone)
-  channel     Manage channels (add, delete, set, list, qr)
-  position    GPS position (get, set, remove)
-  request     Request data from remote nodes (telemetry, position, metadata)
-  traceroute  Trace route to a node showing each hop
-  ping        Ping a node and measure round-trip time
-  gpio        Remote GPIO operations (write, read, watch)
+  nodes        List all nodes visible on the mesh
+  send         Send a text message to the mesh network
+  listen       Stream incoming packets in real time
+  info         Show local node and device information
+  reply        Auto-reply to incoming messages with signal info
+  support      Display diagnostic info about the connected device and CLI
+  config       Get, set, export, import, set-ham, set-url, begin-edit, commit-edit, set-modem-preset, ch-add-url
+  node         Node management (set-owner, remove, set-favorite, remove-favorite, set-ignored, remove-ignored)
+  device       Device management (reboot, reboot-ota, enter-dfu, shutdown, factory-reset, factory-reset-device, reset-nodedb, set-time, set-canned-message, get-canned-message, set-ringtone, get-ringtone)
+  channel      Manage channels (add, delete, set, list, qr)
+  position     GPS position (get, set, remove)
+  request      Request data from remote nodes (telemetry, position, metadata)
+  traceroute   Trace route to a node showing each hop
+  ping         Ping a node and measure round-trip time
+  gpio         Remote GPIO operations (write, read, watch)
+  config-file  Manage persistent CLI configuration (~/.config/meshtastic-cli/config.toml)
+  waypoint     Waypoint management (send, delete, list)
+  watch        Live-updating node table with periodic refresh
+  mqtt         MQTT bridge (bridge)
+  shell        Interactive REPL with command history and tab completion
+  completions  Generate shell completion scripts
 ```
 
 ### Connection examples
@@ -314,6 +328,12 @@ Streams all incoming packets from the mesh network in real time. Runs continuous
 
 ```bash
 meshtastic-cli listen
+
+# Write all received packets as JSON Lines to a log file
+meshtastic-cli listen --log packets.jsonl
+
+# Continue displaying packets in the terminal while also writing to a log file
+meshtastic-cli listen --log /var/log/meshtastic/packets.jsonl
 ```
 
 Decodes and displays the following packet types:
@@ -326,6 +346,10 @@ Decodes and displays the following packet types:
 | Node info    | Long name, short name                            |
 | Routing      | ACK/NAK status, route requests/replies           |
 | Other        | Port type and payload size                       |
+
+| Option  | Description                                                                     |
+|---------|---------------------------------------------------------------------------------|
+| `--log` | File path to write received packets as JSON Lines (one JSON object per line). The terminal display continues in parallel. Omit to disable file logging. |
 
 Example output:
 
@@ -421,6 +445,32 @@ Channels
 
   Nodes in mesh:   8
 ```
+
+### `--json` global flag
+
+Append `--json` to any data-returning command to receive output as a JSON object or array instead of the default formatted text. This is useful for shell scripting, log ingestion, or piping output into tools like `jq`.
+
+```bash
+# List nodes as JSON
+meshtastic-cli --json nodes
+
+# Get device config as JSON
+meshtastic-cli --json config get lora
+
+# Get local node info as JSON
+meshtastic-cli --json info
+
+# Get position as JSON
+meshtastic-cli --json position get
+
+# Request remote telemetry as JSON
+meshtastic-cli --json request telemetry --dest 04e1c43b
+
+# Pipe into jq for filtering
+meshtastic-cli --json nodes | jq '[.[] | select(.battery < 20)]'
+```
+
+The flag is a global option and must be placed before the subcommand name. Commands that produce no structured output (e.g., `send`, `device reboot`) ignore the flag.
 
 ### `config`
 
@@ -1383,6 +1433,263 @@ Example output:
 [15:32:40] Value changed: 0x00000000  (pin 4: LOW, pin 5: LOW)
 ```
 
+### `completions`
+
+Generate shell completion scripts. Once installed, completions enable tab completion for all commands, subcommands, flags, and many argument values directly in your shell.
+
+```bash
+# Print completion script for the current shell to stdout
+meshtastic-cli completions bash
+meshtastic-cli completions zsh
+meshtastic-cli completions fish
+meshtastic-cli completions powershell
+meshtastic-cli completions elvish
+```
+
+#### Installing completions
+
+```bash
+# bash — add to your shell profile or drop into the completions directory
+meshtastic-cli completions bash > ~/.local/share/bash-completion/completions/meshtastic-cli
+
+# zsh — place in a directory on your $fpath
+meshtastic-cli completions zsh > ~/.zfunc/_meshtastic-cli
+# Then add to ~/.zshrc if not already present:
+# fpath=(~/.zfunc $fpath)
+# autoload -Uz compinit && compinit
+
+# fish
+meshtastic-cli completions fish > ~/.config/fish/completions/meshtastic-cli.fish
+```
+
+| Option | Description |
+|---|---|
+| `<SHELL>` | Target shell: `bash`, `zsh`, `fish`, `powershell`, `elvish` (required) |
+
+### `config-file`
+
+Manage a persistent configuration file stored at `~/.config/meshtastic-cli/config.toml`. Values set here are applied automatically on every invocation, so you do not have to repeat connection options or other defaults on every command. Command-line flags always override config file values.
+
+```bash
+# Show current config file contents
+meshtastic-cli config-file show
+
+# Print the path to the config file
+meshtastic-cli config-file path
+
+# Set a persistent default value
+meshtastic-cli config-file set host 192.168.1.100
+meshtastic-cli config-file set port 4403
+meshtastic-cli config-file set serial /dev/ttyUSB0
+
+# Remove a previously set value (revert to built-in default)
+meshtastic-cli config-file unset host
+meshtastic-cli config-file unset serial
+```
+
+Example config file (`~/.config/meshtastic-cli/config.toml`):
+
+```toml
+host = "192.168.1.100"
+port = 4403
+```
+
+Available keys:
+
+| Key | Description | Equivalent flag |
+|---|---|---|
+| `host` | Default TCP host | `--host` |
+| `port` | Default TCP port | `--port` |
+| `serial` | Default serial device path | `--serial` |
+
+| Subcommand | Description |
+|---|---|
+| `show` | Print the current config file contents as TOML |
+| `set <KEY> <VALUE>` | Set a persistent default value |
+| `unset <KEY>` | Remove a key, reverting to the built-in default |
+| `path` | Print the filesystem path of the config file |
+
+### `waypoint`
+
+Send, delete, and list waypoints on the mesh network. Waypoints are named geographic points that appear on the map in compatible Meshtastic clients.
+
+```bash
+# Send a waypoint broadcast to all nodes
+meshtastic-cli waypoint send --name "Base Camp" --lat 40.4168 --lon -3.7038
+
+# Send a waypoint with full options
+meshtastic-cli waypoint send \
+  --name "Checkpoint A" \
+  --lat 40.4168 \
+  --lon -3.7038 \
+  --alt 650 \
+  --icon 9410 \
+  --expire 3600 \
+  --dest 04e1c43b
+
+# Delete a waypoint by ID
+meshtastic-cli waypoint delete --id 42
+
+# List all waypoints known to the local node
+meshtastic-cli waypoint list
+```
+
+| Subcommand | Description |
+|---|---|
+| `send` | Broadcast or unicast a new waypoint |
+| `delete` | Delete a waypoint by its numeric ID |
+| `list` | List all waypoints currently stored on the local node |
+
+`waypoint send` options:
+
+| Option | Description |
+|---|---|
+| `--name` | Waypoint name, up to 30 characters (required) |
+| `--lat` | Latitude in decimal degrees (required) |
+| `--lon` | Longitude in decimal degrees (required) |
+| `--alt` | Altitude in meters (optional) |
+| `--icon` | Unicode code point for the waypoint icon displayed in clients (optional) |
+| `--expire` | Seconds until the waypoint expires (optional, omit for no expiry) |
+| `--dest` | Target node ID in hex for a unicast waypoint (omit to broadcast) |
+| `--to` | Target node name for a unicast waypoint (omit to broadcast) |
+
+`waypoint delete` options:
+
+| Option | Description |
+|---|---|
+| `--id` | Numeric waypoint ID to delete (required) |
+
+### `watch`
+
+Displays the node table as a live-updating view that refreshes periodically in place, similar to the `watch` Unix utility applied to the `nodes` output. Press Ctrl+C to stop.
+
+```bash
+# Watch node table, refresh every 30 seconds (default)
+meshtastic-cli watch
+
+# Refresh every 10 seconds
+meshtastic-cli watch --interval 10
+
+# Watch with a custom field set
+meshtastic-cli watch --fields id,name,battery,snr --interval 15
+```
+
+| Option | Description |
+|---|---|
+| `--interval` | Refresh interval in seconds (default: 30) |
+| `--fields` | Comma-separated list of columns to display (same values as `nodes --fields`) |
+
+Example output (refreshes in place):
+
+```
+meshtastic-cli watch  --  refreshing every 30s  --  last update: 15:30:00  --  Ctrl+C to stop
+
+  ID          Name          Battery   SNR     Hops   Last Heard
+  !04e1c43b   Pedro         85%       8.5     0      just now
+  !a1b2c3d4   Maria         72%       6.0     1      2m ago
+  !e5f6a7b8   Relay-1       --        4.5     2      5m ago
+```
+
+### `mqtt bridge`
+
+Bidirectional MQTT bridge. Subscribes to incoming mesh packets and republishes them to an MQTT broker as JSON, and optionally subscribes to an MQTT topic to inject messages back into the mesh. Useful for integrating a Meshtastic mesh into home automation, dashboards, or data pipelines without enabling the built-in MQTT module on the device.
+
+```bash
+# Bridge to a local MQTT broker with default topic prefix
+meshtastic-cli mqtt bridge --broker mqtt://localhost:1883
+
+# Bridge with authentication
+meshtastic-cli mqtt bridge \
+  --broker mqtt://broker.example.com:1883 \
+  --username myuser \
+  --password mypassword
+
+# Bridge with a custom topic prefix (default: meshtastic)
+meshtastic-cli mqtt bridge \
+  --broker mqtt://localhost:1883 \
+  --topic my-mesh
+
+# Bridge without bidirectional injection (publish only)
+meshtastic-cli mqtt bridge \
+  --broker mqtt://localhost:1883 \
+  --no-downlink
+```
+
+Published topic format:
+
+```
+<prefix>/<node-id>/<port-name>
+```
+
+Example topics published by the bridge:
+
+```
+meshtastic/04e1c43b/text
+meshtastic/04e1c43b/position
+meshtastic/04e1c43b/telemetry/device
+```
+
+Each message is a JSON object containing the decoded packet fields plus metadata (timestamp, sender node ID, SNR, RSSI, hops).
+
+Downlink topic (for injecting messages into the mesh):
+
+```
+<prefix>/downlink/send
+```
+
+Post a JSON payload to this topic to send a text message via the bridge:
+
+```json
+{ "text": "hello mesh", "channel": 0 }
+```
+
+| Option | Description |
+|---|---|
+| `--broker` | MQTT broker URL including scheme and port, e.g. `mqtt://localhost:1883` (required) |
+| `--username` | MQTT username for authenticated brokers (optional) |
+| `--password` | MQTT password for authenticated brokers (optional) |
+| `--topic` | Topic prefix for all published messages (default: `meshtastic`) |
+| `--no-downlink` | Disable the downlink subscription (publish-only mode) |
+
+### `shell`
+
+Interactive REPL (Read-Eval-Print Loop) for exploratory and interactive use. The shell maintains a single persistent connection to the device for the duration of the session, avoiding the startup overhead of reconnecting for every command. Commands are the same as in non-interactive mode; the connection flags (`--host`, `--serial`, `--ble`) are specified once when launching the shell.
+
+```bash
+# Start an interactive shell (connects to default TCP host)
+meshtastic-cli shell
+
+# Start an interactive shell connected to a serial device
+meshtastic-cli --serial /dev/ttyUSB0 shell
+```
+
+Features:
+
+- Command history persisted to `~/.local/share/meshtastic-cli/history` across sessions
+- Tab completion for all commands, subcommands, and flags (powered by `rustyline`)
+- Single device connection reused for the entire session
+- `help` prints available commands
+- `exit` or Ctrl+D to quit
+
+Example session:
+
+```
+meshtastic-cli> nodes
+  ID          Name    Battery  SNR    Hops  Last Heard
+  !04e1c43b   Pedro   85%      8.5    0     just now
+  !a1b2c3d4   Maria   72%      6.0    1     2m ago
+
+meshtastic-cli> send "hello from shell"
+ok Message sent.
+
+meshtastic-cli> ping --to Maria
+-> Pinging !a1b2c3d4 (Maria) (packet id: 7f3a1b2c)...
+ok ACK from !a1b2c3d4 (Maria) in 1.8s
+
+meshtastic-cli> exit
+Goodbye.
+```
+
 ---
 
 ## Architecture
@@ -1396,6 +1703,8 @@ CLI Input
 main.rs  (argument parsing + dispatch only)
     |
     +---> connection.rs  (TCP, Serial, or BLE -> StreamApi)
+    |
+    +---> config_file.rs  (persistent CLI config at ~/.config/meshtastic-cli/config.toml)
     |
     +---> commands/
               mod.rs          (Command trait definition)
@@ -1415,6 +1724,10 @@ main.rs  (argument parsing + dispatch only)
               reply.rs        (implements Command for auto-reply)
               gpio.rs         (implements Command for remote GPIO operations)
               support.rs      (implements Command for diagnostic info display)
+              waypoint.rs     (implements Command for waypoint send/delete/list)
+              watch.rs        (implements Command for live-updating node table)
+              mqtt_bridge.rs  (implements Command for bidirectional MQTT bridge)
+              shell.rs        (implements Command for interactive REPL)
 ```
 
 ### Key Patterns
@@ -1423,6 +1736,7 @@ main.rs  (argument parsing + dispatch only)
 - **Connection abstraction**: `connection.rs` encapsulates TCP (via `meshtastic`'s `StreamApi`), serial (via `tokio-serial`), and BLE connections, exposing a unified interface to commands.
 - **Error types**: `error.rs` uses `thiserror` for structured, typed errors. `anyhow` is used at the boundary (main) for ergonomic top-level error handling.
 - **Feature flags**: BLE support is gated behind the `ble` Cargo feature to avoid requiring Bluetooth platform libraries in environments that do not need them.
+- **Persistent config**: `config_file.rs` reads `~/.config/meshtastic-cli/config.toml` at startup and merges stored defaults with command-line flags before dispatch, following standard XDG conventions.
 
 ### Tech Stack
 
@@ -1432,12 +1746,18 @@ main.rs  (argument parsing + dispatch only)
 | Async runtime   | Tokio                  | Required by the `meshtastic` crate                  |
 | Device protocol | meshtastic v0.1.8      | Official Rust crate for Meshtastic protocol         |
 | CLI parsing     | clap (derive)          | Ergonomic, zero-boilerplate argument definitions    |
+| Shell completions | clap_complete        | Generate shell completions from clap definitions    |
 | Error handling  | thiserror / anyhow     | Typed errors in libraries, ergonomic in binaries    |
 | Serial I/O      | tokio-serial           | Async serial port support                           |
 | Terminal output | colored                | Readable, colored CLI output                        |
+| Terminal UI     | crossterm              | Terminal manipulation for the live `watch` display  |
 | Serialization   | serde / serde_yaml     | YAML config export and import                       |
+| JSON output     | serde_json             | Structured JSON output for `--json` flag            |
+| Config file     | toml / dirs            | Persistent CLI config file parsing and XDG paths    |
 | QR codes        | qrcode                 | QR code generation for terminal, PNG, and SVG       |
 | Image output    | image                  | PNG image rendering for QR code export              |
+| MQTT client     | rumqttc                | Async MQTT client for the bridge command            |
+| Interactive REPL | rustyline / shlex     | Command history, line editing, and tab completion for `shell` |
 
 > Note: The `meshtastic` crate (v0.1.8) is early-stage. When something appears underdocumented, refer to the source: https://github.com/meshtastic/rust
 
@@ -1499,6 +1819,7 @@ meshtastic-cli/
     ├── main.rs              # CLI parsing and command dispatch only
     ├── cli.rs               # Clap argument and subcommand definitions
     ├── connection.rs        # TCP, serial, and BLE connection handling
+    ├── config_file.rs       # Persistent CLI config (~/.config/meshtastic-cli/config.toml)
     ├── error.rs             # Typed error definitions (thiserror)
     ├── node_db.rs           # Node data model and local node database
     ├── router.rs            # Packet routing and dispatch logic
@@ -1519,7 +1840,11 @@ meshtastic-cli/
         ├── request.rs       # `request telemetry/position/metadata` implementation
         ├── reply.rs         # `reply` command implementation
         ├── gpio.rs          # `gpio write/read/watch` implementation
-        └── support.rs       # `support` command implementation
+        ├── support.rs       # `support` command implementation
+        ├── waypoint.rs      # `waypoint send/delete/list` implementation
+        ├── watch.rs         # `watch` live node table implementation
+        ├── mqtt_bridge.rs   # `mqtt bridge` bidirectional bridge implementation
+        └── shell.rs         # `shell` interactive REPL implementation
 ```
 
 ---
@@ -1599,6 +1924,19 @@ meshtastic-cli/
 | `node set-unmessageable` | Mark local node as unmessageable/messageable | Done |
 | Named position flags | Accept flag names (ALTITUDE, TIMESTAMP, etc.) in addition to numeric bitmask | Done |
 
+### Post-Parity Enhancements
+
+| Feature | Description | Status |
+|---|---|---|
+| `--json` | Global flag for structured JSON output on all data-returning commands | Done |
+| `completions` | Generate shell completion scripts for bash, zsh, fish, PowerShell, Elvish | Done |
+| `config-file` | Persistent CLI config at `~/.config/meshtastic-cli/config.toml` (show, set, unset, path) | Done |
+| `waypoint send/delete/list` | Waypoint management on the mesh (name, lat/lon/alt, icon, expiry, unicast) | Done |
+| `watch` | Live-updating node table with configurable refresh interval | Done |
+| `listen --log` | Write received packets as JSON Lines to a log file | Done |
+| `mqtt bridge` | Bidirectional MQTT bridge with configurable topic prefix and downlink injection | Done |
+| `shell` | Interactive REPL with persistent command history and tab completion | Done |
+
 ---
 
 ## Contributing
@@ -1626,4 +1964,6 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 **Stability**: Experimental — API and CLI interface may change
 
 **Next Milestones**:
-- Additional commands as needed for feature parity with the official Python CLI
+- Investigate TLS/mTLS support for the MQTT bridge
+- Explore structured logging integration (tracing crate) for long-running commands
+- Community-requested features and hardware-specific improvements

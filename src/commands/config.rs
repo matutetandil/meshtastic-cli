@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use colored::Colorize;
 use meshtastic::protobufs;
 use meshtastic::Message;
+use serde_json::json;
 
 use crate::cli::ConfigSection;
 
@@ -16,9 +17,84 @@ pub struct ConfigGetCommand {
 
 #[async_trait]
 impl Command for ConfigGetCommand {
-    async fn execute(self: Box<Self>, ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let config = ctx.node_db.local_config();
         let module = ctx.node_db.local_module_config();
+
+        if ctx.json {
+            let result = match &self.section {
+                None => {
+                    let mut map = serde_json::Map::new();
+                    if let Some(c) = config.device.as_ref() {
+                        map.insert("device".into(), config_device_json(c));
+                    }
+                    if let Some(c) = config.position.as_ref() {
+                        map.insert("position".into(), config_position_json(c));
+                    }
+                    if let Some(c) = config.power.as_ref() {
+                        map.insert("power".into(), config_power_json(c));
+                    }
+                    if let Some(c) = config.network.as_ref() {
+                        map.insert("network".into(), config_network_json(c));
+                    }
+                    if let Some(c) = config.display.as_ref() {
+                        map.insert("display".into(), config_display_json(c));
+                    }
+                    if let Some(c) = config.lora.as_ref() {
+                        map.insert("lora".into(), config_lora_json(c));
+                    }
+                    if let Some(c) = config.bluetooth.as_ref() {
+                        map.insert("bluetooth".into(), config_bluetooth_json(c));
+                    }
+                    if let Some(c) = config.security.as_ref() {
+                        map.insert("security".into(), config_security_json(c));
+                    }
+                    if let Some(c) = module.mqtt.as_ref() {
+                        map.insert("mqtt".into(), config_mqtt_json(c));
+                    }
+                    if let Some(c) = module.serial.as_ref() {
+                        map.insert("serial".into(), config_serial_json(c));
+                    }
+                    if let Some(c) = module.telemetry.as_ref() {
+                        map.insert("telemetry".into(), config_telemetry_json(c));
+                    }
+                    if let Some(c) = module.neighbor_info.as_ref() {
+                        map.insert("neighbor_info".into(), config_neighbor_info_json(c));
+                    }
+                    serde_json::Value::Object(map)
+                }
+                Some(section) => {
+                    let val = match section {
+                        ConfigSection::Device => config.device.as_ref().map(config_device_json),
+                        ConfigSection::Position => {
+                            config.position.as_ref().map(config_position_json)
+                        }
+                        ConfigSection::Power => config.power.as_ref().map(config_power_json),
+                        ConfigSection::Network => config.network.as_ref().map(config_network_json),
+                        ConfigSection::Display => config.display.as_ref().map(config_display_json),
+                        ConfigSection::Lora => config.lora.as_ref().map(config_lora_json),
+                        ConfigSection::Bluetooth => {
+                            config.bluetooth.as_ref().map(config_bluetooth_json)
+                        }
+                        ConfigSection::Security => {
+                            config.security.as_ref().map(config_security_json)
+                        }
+                        ConfigSection::Mqtt => module.mqtt.as_ref().map(config_mqtt_json),
+                        ConfigSection::Serial => module.serial.as_ref().map(config_serial_json),
+                        ConfigSection::Telemetry => {
+                            module.telemetry.as_ref().map(config_telemetry_json)
+                        }
+                        ConfigSection::NeighborInfo => {
+                            module.neighbor_info.as_ref().map(config_neighbor_info_json)
+                        }
+                        _ => Some(json!({"status": "section not available in JSON mode"})),
+                    };
+                    val.unwrap_or(serde_json::Value::Null)
+                }
+            };
+            println!("{}", serde_json::to_string_pretty(&result)?);
+            return Ok(());
+        }
 
         match &self.section {
             None => {
@@ -96,7 +172,7 @@ pub struct ConfigSetCommand {
 
 #[async_trait]
 impl Command for ConfigSetCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let (section, field) = self.key.split_once('.').ok_or_else(|| {
             anyhow::anyhow!("Key must be in section.field format (e.g. lora.region)")
         })?;
@@ -175,9 +251,10 @@ pub struct SetHamCommand {
 
 #[async_trait]
 impl Command for SetHamCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let short_name = self
             .short_name
+            .clone()
             .unwrap_or_else(|| self.call_sign.chars().take(4).collect::<String>());
 
         let ham = protobufs::HamParameters {
@@ -203,7 +280,7 @@ impl Command for SetHamCommand {
 
         let my_id = ctx.node_db.my_node_num();
         super::device::send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             protobufs::admin_message::PayloadVariant::SetHamMode(ham),
         )
@@ -227,7 +304,7 @@ pub struct SetUrlCommand {
 
 #[async_trait]
 impl Command for SetUrlCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let encoded = extract_url_payload(&self.url)?;
         let bytes = base64_decode(&encoded)?;
         let channel_set = protobufs::ChannelSet::decode(bytes.as_slice())
@@ -302,13 +379,13 @@ pub struct BeginEditCommand;
 
 #[async_trait]
 impl Command for BeginEditCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
 
         println!("{} Starting batch edit session...", "->".cyan());
 
         super::device::send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             protobufs::admin_message::PayloadVariant::BeginEditSettings(true),
         )
@@ -329,13 +406,13 @@ pub struct CommitEditCommand;
 
 #[async_trait]
 impl Command for CommitEditCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
 
         println!("{} Committing queued configuration changes...", "->".cyan());
 
         super::device::send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             protobufs::admin_message::PayloadVariant::CommitEditSettings(true),
         )
@@ -359,7 +436,7 @@ pub struct SetModemPresetCommand {
 
 #[async_trait]
 impl Command for SetModemPresetCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let mut lora = ctx.node_db.local_config().lora.clone().unwrap_or_default();
         lora.modem_preset = self.preset;
         lora.use_preset = true;
@@ -400,7 +477,7 @@ pub struct ChAddUrlCommand {
 
 #[async_trait]
 impl Command for ChAddUrlCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let encoded = extract_url_payload(&self.url)?;
         let bytes = base64_decode(&encoded)?;
         let channel_set = protobufs::ChannelSet::decode(bytes.as_slice())
@@ -532,6 +609,160 @@ fn b64_val(c: u8) -> anyhow::Result<u8> {
         b'=' => Ok(0),
         _ => bail!("Invalid base64 character: {}", c as char),
     }
+}
+
+// ── JSON helpers ───────────────────────────────────────────────────
+
+fn fmt_enum<T: std::fmt::Debug>(value: i32, f: impl FnOnce(i32) -> Option<T>) -> String {
+    f(value)
+        .map(|v| format!("{:?}", v))
+        .unwrap_or_else(|| value.to_string())
+}
+
+fn config_device_json(c: &protobufs::config::DeviceConfig) -> serde_json::Value {
+    json!({
+        "role": fmt_enum(c.role, |v| protobufs::config::device_config::Role::try_from(v).ok()),
+        "node_info_broadcast_secs": c.node_info_broadcast_secs,
+        "double_tap_as_button_press": c.double_tap_as_button_press,
+        "disable_triple_click": c.disable_triple_click,
+        "led_heartbeat_disabled": c.led_heartbeat_disabled,
+        "rebroadcast_mode": fmt_enum(c.rebroadcast_mode, |v| protobufs::config::device_config::RebroadcastMode::try_from(v).ok()),
+    })
+}
+
+fn config_position_json(c: &protobufs::config::PositionConfig) -> serde_json::Value {
+    json!({
+        "position_broadcast_secs": c.position_broadcast_secs,
+        "position_broadcast_smart_enabled": c.position_broadcast_smart_enabled,
+        "fixed_position": c.fixed_position,
+        "gps_update_interval": c.gps_update_interval,
+        "position_flags": c.position_flags,
+        "gps_mode": fmt_enum(c.gps_mode, |v| protobufs::config::position_config::GpsMode::try_from(v).ok()),
+    })
+}
+
+fn config_power_json(c: &protobufs::config::PowerConfig) -> serde_json::Value {
+    json!({
+        "is_power_saving": c.is_power_saving,
+        "on_battery_shutdown_after_secs": c.on_battery_shutdown_after_secs,
+        "adc_multiplier_override": c.adc_multiplier_override,
+        "wait_bluetooth_secs": c.wait_bluetooth_secs,
+        "sds_secs": c.sds_secs,
+        "ls_secs": c.ls_secs,
+        "min_wake_secs": c.min_wake_secs,
+    })
+}
+
+fn config_network_json(c: &protobufs::config::NetworkConfig) -> serde_json::Value {
+    json!({
+        "wifi_enabled": c.wifi_enabled,
+        "wifi_ssid": c.wifi_ssid,
+        "ntp_server": c.ntp_server,
+        "eth_enabled": c.eth_enabled,
+        "address_mode": fmt_enum(c.address_mode, |v| protobufs::config::network_config::AddressMode::try_from(v).ok()),
+        "ipv6_enabled": c.ipv6_enabled,
+    })
+}
+
+fn config_display_json(c: &protobufs::config::DisplayConfig) -> serde_json::Value {
+    json!({
+        "screen_on_secs": c.screen_on_secs,
+        "auto_screen_carousel_secs": c.auto_screen_carousel_secs,
+        "flip_screen": c.flip_screen,
+        "units": fmt_enum(c.units, |v| protobufs::config::display_config::DisplayUnits::try_from(v).ok()),
+        "oled": fmt_enum(c.oled, |v| protobufs::config::display_config::OledType::try_from(v).ok()),
+        "heading_bold": c.heading_bold,
+        "use_12h_clock": c.use_12h_clock,
+    })
+}
+
+fn config_lora_json(c: &protobufs::config::LoRaConfig) -> serde_json::Value {
+    json!({
+        "region": fmt_enum(c.region, |v| protobufs::config::lo_ra_config::RegionCode::try_from(v).ok()),
+        "modem_preset": fmt_enum(c.modem_preset, |v| protobufs::config::lo_ra_config::ModemPreset::try_from(v).ok()),
+        "use_preset": c.use_preset,
+        "bandwidth": c.bandwidth,
+        "spread_factor": c.spread_factor,
+        "coding_rate": c.coding_rate,
+        "frequency_offset": c.frequency_offset,
+        "hop_limit": c.hop_limit,
+        "tx_enabled": c.tx_enabled,
+        "tx_power": c.tx_power,
+        "channel_num": c.channel_num,
+        "override_duty_cycle": c.override_duty_cycle,
+        "override_frequency": c.override_frequency,
+        "ignore_mqtt": c.ignore_mqtt,
+        "config_ok_to_mqtt": c.config_ok_to_mqtt,
+    })
+}
+
+fn config_bluetooth_json(c: &protobufs::config::BluetoothConfig) -> serde_json::Value {
+    json!({
+        "enabled": c.enabled,
+        "mode": fmt_enum(c.mode, |v| protobufs::config::bluetooth_config::PairingMode::try_from(v).ok()),
+        "fixed_pin": c.fixed_pin,
+    })
+}
+
+fn config_security_json(c: &protobufs::config::SecurityConfig) -> serde_json::Value {
+    json!({
+        "is_managed": c.is_managed,
+        "serial_enabled": c.serial_enabled,
+        "debug_log_api_enabled": c.debug_log_api_enabled,
+        "admin_channel_enabled": c.admin_channel_enabled,
+        "public_key_len": c.public_key.len(),
+        "private_key_len": c.private_key.len(),
+        "admin_key_count": c.admin_key.len(),
+    })
+}
+
+fn config_mqtt_json(c: &protobufs::module_config::MqttConfig) -> serde_json::Value {
+    json!({
+        "enabled": c.enabled,
+        "address": c.address,
+        "username": c.username,
+        "encryption_enabled": c.encryption_enabled,
+        "json_enabled": c.json_enabled,
+        "tls_enabled": c.tls_enabled,
+        "root": c.root,
+        "proxy_to_client_enabled": c.proxy_to_client_enabled,
+        "map_reporting_enabled": c.map_reporting_enabled,
+    })
+}
+
+fn config_serial_json(c: &protobufs::module_config::SerialConfig) -> serde_json::Value {
+    json!({
+        "enabled": c.enabled,
+        "echo": c.echo,
+        "rxd": c.rxd,
+        "txd": c.txd,
+        "baud": fmt_enum(c.baud, |v| protobufs::module_config::serial_config::SerialBaud::try_from(v).ok()),
+        "timeout": c.timeout,
+        "mode": fmt_enum(c.mode, |v| protobufs::module_config::serial_config::SerialMode::try_from(v).ok()),
+    })
+}
+
+fn config_telemetry_json(c: &protobufs::module_config::TelemetryConfig) -> serde_json::Value {
+    json!({
+        "device_update_interval": c.device_update_interval,
+        "environment_update_interval": c.environment_update_interval,
+        "environment_measurement_enabled": c.environment_measurement_enabled,
+        "environment_screen_enabled": c.environment_screen_enabled,
+        "air_quality_enabled": c.air_quality_enabled,
+        "air_quality_interval": c.air_quality_interval,
+        "power_measurement_enabled": c.power_measurement_enabled,
+        "power_update_interval": c.power_update_interval,
+    })
+}
+
+fn config_neighbor_info_json(
+    c: &protobufs::module_config::NeighborInfoConfig,
+) -> serde_json::Value {
+    json!({
+        "enabled": c.enabled,
+        "update_interval": c.update_interval,
+        "transmit_over_lora": c.transmit_over_lora,
+    })
 }
 
 // ── Print helpers ──────────────────────────────────────────────────

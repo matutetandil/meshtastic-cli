@@ -17,7 +17,7 @@ pub struct ExportConfigCommand {
 
 #[async_trait]
 impl Command for ExportConfigCommand {
-    async fn execute(self: Box<Self>, ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let config = ctx.node_db.local_config();
         let module = ctx.node_db.local_module_config();
         let channels = ctx.node_db.channels();
@@ -133,7 +133,7 @@ pub struct ImportConfigCommand {
 
 #[async_trait]
 impl Command for ImportConfigCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let content = std::fs::read_to_string(&self.file)?;
         let root: BTreeMap<String, Value> = serde_yaml::from_str(&content)?;
 

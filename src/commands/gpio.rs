@@ -8,8 +8,17 @@ use meshtastic::protobufs::mesh_packet::PayloadVariant as MeshPayload;
 use meshtastic::protobufs::{self, hardware_message, Data, HardwareMessage, MeshPacket, PortNum};
 use meshtastic::utils::generate_rand_id;
 use meshtastic::Message;
+use serde::Serialize;
 
 use super::{resolve_destination, Command, CommandContext, DestinationSpec};
+
+#[derive(Serialize)]
+struct GpioJson {
+    event: String,
+    mask: String,
+    value: String,
+    value_decimal: u64,
+}
 
 // ── GpioWriteCommand ─────────────────────────────────────────────
 
@@ -21,7 +30,7 @@ pub struct GpioWriteCommand {
 
 #[async_trait]
 impl Command for GpioWriteCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let (packet_dest, dest_label) = resolve_destination(&self.destination, &ctx.node_db)?;
 
         let target_id = match packet_dest {
@@ -82,7 +91,7 @@ pub struct GpioReadCommand {
 
 #[async_trait]
 impl Command for GpioReadCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let (packet_dest, dest_label) = resolve_destination(&self.destination, &ctx.node_db)?;
 
         let target_id = match packet_dest {
@@ -168,14 +177,24 @@ impl Command for GpioReadCommand {
                     }
                     if let Ok(hw_msg) = HardwareMessage::decode(data.payload.as_slice()) {
                         if hw_msg.r#type == hardware_message::Type::ReadGpiosReply as i32 {
-                            println!("{} GPIO read from {}:", "ok".green(), dest_label);
-                            println!("  {:<16} 0x{:x}", "mask:".dimmed(), hw_msg.gpio_mask);
-                            println!(
-                                "  {:<16} 0x{:x} ({})",
-                                "value:".dimmed(),
-                                hw_msg.gpio_value,
-                                hw_msg.gpio_value
-                            );
+                            if ctx.json {
+                                let result = GpioJson {
+                                    event: "read".to_string(),
+                                    mask: format!("0x{:x}", hw_msg.gpio_mask),
+                                    value: format!("0x{:x}", hw_msg.gpio_value),
+                                    value_decimal: hw_msg.gpio_value,
+                                };
+                                println!("{}", serde_json::to_string_pretty(&result)?);
+                            } else {
+                                println!("{} GPIO read from {}:", "ok".green(), dest_label);
+                                println!("  {:<16} 0x{:x}", "mask:".dimmed(), hw_msg.gpio_mask);
+                                println!(
+                                    "  {:<16} 0x{:x} ({})",
+                                    "value:".dimmed(),
+                                    hw_msg.gpio_value,
+                                    hw_msg.gpio_value
+                                );
+                            }
                             return Ok(());
                         }
                     }
@@ -194,7 +213,7 @@ pub struct GpioWatchCommand {
 
 #[async_trait]
 impl Command for GpioWatchCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let (packet_dest, dest_label) = resolve_destination(&self.destination, &ctx.node_db)?;
 
         let target_id = match packet_dest {
@@ -251,13 +270,25 @@ impl Command for GpioWatchCommand {
             }
             if let Ok(hw_msg) = HardwareMessage::decode(data.payload.as_slice()) {
                 if hw_msg.r#type == hardware_message::Type::GpiosChanged as i32 {
-                    println!(
-                        "{} GPIO changed: mask=0x{:x}, value=0x{:x} ({})",
-                        "!".yellow(),
-                        hw_msg.gpio_mask,
-                        hw_msg.gpio_value,
-                        hw_msg.gpio_value
-                    );
+                    if ctx.json {
+                        let event = GpioJson {
+                            event: "changed".to_string(),
+                            mask: format!("0x{:x}", hw_msg.gpio_mask),
+                            value: format!("0x{:x}", hw_msg.gpio_value),
+                            value_decimal: hw_msg.gpio_value,
+                        };
+                        if let Ok(j) = serde_json::to_string(&event) {
+                            println!("{}", j);
+                        }
+                    } else {
+                        println!(
+                            "{} GPIO changed: mask=0x{:x}, value=0x{:x} ({})",
+                            "!".yellow(),
+                            hw_msg.gpio_mask,
+                            hw_msg.gpio_value,
+                            hw_msg.gpio_value
+                        );
+                    }
                 }
             }
         }

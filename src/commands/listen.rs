@@ -1,3 +1,6 @@
+use std::io::Write;
+use std::path::PathBuf;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Local, Utc};
 use colored::Colorize;
@@ -6,32 +9,77 @@ use meshtastic::protobufs::mesh_packet::PayloadVariant as MeshPayload;
 use meshtastic::protobufs::telemetry::Variant as TelemetryVariant;
 use meshtastic::protobufs::{MeshPacket, PortNum, Position, Routing, Telemetry, User};
 use meshtastic::Message;
+use serde::Serialize;
 
 use super::{Command, CommandContext};
 use crate::node_db::NodeDb;
 
+#[derive(Serialize)]
+struct PacketJson {
+    from: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    from_name: Option<String>,
+    to: String,
+    port: String,
+    channel: u32,
+    rx_time: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    payload: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    payload_size: Option<usize>,
+}
+
 const BROADCAST_ADDR: u32 = 0xFFFFFFFF;
 
-pub struct ListenCommand;
+pub struct ListenCommand {
+    pub log_path: Option<PathBuf>,
+}
 
 #[async_trait]
 impl Command for ListenCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
-        println!(
-            "{} Listening for packets... Press {} to stop.\n",
-            "→".cyan(),
-            "Ctrl+C".bold()
-        );
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
+        let mut log_writer = match &self.log_path {
+            Some(path) => {
+                let file = std::fs::File::create(path)?;
+                if !ctx.json {
+                    println!(
+                        "{} Logging packets to {}",
+                        "->".cyan(),
+                        path.display().to_string().bold()
+                    );
+                }
+                Some(std::io::BufWriter::new(file))
+            }
+            None => None,
+        };
+
+        if !ctx.json {
+            println!(
+                "{} Listening for packets... Press {} to stop.\n",
+                "→".cyan(),
+                "Ctrl+C".bold()
+            );
+        }
 
         while let Some(packet) = ctx.packet_receiver.recv().await {
             let Some(PayloadVariant::Packet(mesh_packet)) = packet.payload_variant else {
                 continue;
             };
 
-            print_packet(&mesh_packet, &ctx.node_db);
+            if ctx.json {
+                print_packet_json(&mesh_packet, &ctx.node_db);
+            } else {
+                print_packet(&mesh_packet, &ctx.node_db);
+            }
+
+            if let Some(ref mut writer) = log_writer {
+                write_packet_log(&mesh_packet, &ctx.node_db, writer);
+            }
         }
 
-        println!("\nDisconnected from device.");
+        if !ctx.json {
+            println!("\nDisconnected from device.");
+        }
         Ok(())
     }
 }
@@ -196,6 +244,53 @@ fn format_routing(payload: &[u8]) -> String {
     }
 }
 
+fn print_packet_json(packet: &MeshPacket, node_db: &NodeDb) {
+    let Some(MeshPayload::Decoded(ref data)) = packet.payload_variant else {
+        let pkt = PacketJson {
+            from: format!("!{:08x}", packet.from),
+            from_name: node_db.node_name(packet.from).map(|s| s.to_string()),
+            to: if packet.to == BROADCAST_ADDR {
+                "broadcast".to_string()
+            } else {
+                format!("!{:08x}", packet.to)
+            },
+            port: "encrypted".to_string(),
+            channel: packet.channel,
+            rx_time: packet.rx_time,
+            payload: None,
+            payload_size: None,
+        };
+        if let Ok(json) = serde_json::to_string(&pkt) {
+            println!("{}", json);
+        }
+        return;
+    };
+
+    let port = PortNum::try_from(data.portnum).unwrap_or(PortNum::UnknownApp);
+    let payload_str = match &port {
+        PortNum::TextMessageApp => Some(format_text(&data.payload)),
+        _ => None,
+    };
+
+    let pkt = PacketJson {
+        from: format!("!{:08x}", packet.from),
+        from_name: node_db.node_name(packet.from).map(|s| s.to_string()),
+        to: if packet.to == BROADCAST_ADDR {
+            "broadcast".to_string()
+        } else {
+            format!("!{:08x}", packet.to)
+        },
+        port: format!("{:?}", port),
+        channel: packet.channel,
+        rx_time: packet.rx_time,
+        payload: payload_str,
+        payload_size: Some(data.payload.len()),
+    };
+    if let Ok(json) = serde_json::to_string(&pkt) {
+        println!("{}", json);
+    }
+}
+
 fn format_telemetry(payload: &[u8]) -> String {
     let Ok(telemetry) = Telemetry::decode(payload) else {
         return format!("<decode error: {} bytes>", payload.len());
@@ -256,5 +351,57 @@ fn format_telemetry(payload: &[u8]) -> String {
         Some(TelemetryVariant::HealthMetrics(_)) => "health metrics".to_string(),
         Some(TelemetryVariant::HostMetrics(_)) => "host metrics".to_string(),
         None => "telemetry (no data)".to_string(),
+    }
+}
+
+fn write_packet_log(
+    packet: &MeshPacket,
+    node_db: &NodeDb,
+    writer: &mut std::io::BufWriter<std::fs::File>,
+) {
+    let json = build_packet_json(packet, node_db);
+    if let Ok(line) = serde_json::to_string(&json) {
+        let _ = writeln!(writer, "{}", line);
+        let _ = writer.flush();
+    }
+}
+
+fn build_packet_json(packet: &MeshPacket, node_db: &NodeDb) -> PacketJson {
+    let Some(MeshPayload::Decoded(ref data)) = packet.payload_variant else {
+        return PacketJson {
+            from: format!("!{:08x}", packet.from),
+            from_name: node_db.node_name(packet.from).map(|s| s.to_string()),
+            to: if packet.to == BROADCAST_ADDR {
+                "broadcast".to_string()
+            } else {
+                format!("!{:08x}", packet.to)
+            },
+            port: "encrypted".to_string(),
+            channel: packet.channel,
+            rx_time: packet.rx_time,
+            payload: None,
+            payload_size: None,
+        };
+    };
+
+    let port = PortNum::try_from(data.portnum).unwrap_or(PortNum::UnknownApp);
+    let payload_str = match &port {
+        PortNum::TextMessageApp => Some(format_text(&data.payload)),
+        _ => None,
+    };
+
+    PacketJson {
+        from: format!("!{:08x}", packet.from),
+        from_name: node_db.node_name(packet.from).map(|s| s.to_string()),
+        to: if packet.to == BROADCAST_ADDR {
+            "broadcast".to_string()
+        } else {
+            format!("!{:08x}", packet.to)
+        },
+        port: format!("{:?}", port),
+        channel: packet.channel,
+        rx_time: packet.rx_time,
+        payload: payload_str,
+        payload_size: Some(data.payload.len()),
     }
 }

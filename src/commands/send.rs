@@ -9,8 +9,20 @@ use meshtastic::protobufs::{self, routing, Data, MeshPacket, PortNum, Routing};
 use meshtastic::types::MeshChannel;
 use meshtastic::utils::generate_rand_id;
 use meshtastic::Message;
+use serde::Serialize;
 
 use super::{resolve_destination, Command, CommandContext, DestinationSpec};
+
+#[derive(Serialize)]
+struct SendResultJson {
+    dest: String,
+    channel: u32,
+    status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rtt_ms: Option<u128>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
 
 pub struct SendCommand {
     pub message: String,
@@ -23,7 +35,7 @@ pub struct SendCommand {
 
 #[async_trait]
 impl Command for SendCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let (packet_dest, dest_label) = resolve_destination(&self.destination, &ctx.node_db)?;
 
         if self.wait_ack && matches!(self.destination, DestinationSpec::Broadcast) {
@@ -68,18 +80,31 @@ impl Command for SendCommand {
                 )))
                 .await?;
 
-            let port_label = if self.private { " (private)" } else { "" };
-            println!(
-                "{} Message{} sent to {} on channel {}",
-                "ok".green(),
-                port_label,
-                dest_label.bold(),
-                self.channel.channel()
-            );
+            if !ctx.json {
+                let port_label = if self.private { " (private)" } else { "" };
+                println!(
+                    "{} Message{} sent to {} on channel {}",
+                    "ok".green(),
+                    port_label,
+                    dest_label.bold(),
+                    self.channel.channel()
+                );
+            }
 
             if self.wait_ack {
-                println!("{} Waiting for ACK...", "->".cyan());
-                wait_for_ack(&mut ctx, packet_id, self.timeout_secs, &dest_label).await?;
+                if !ctx.json {
+                    println!("{} Waiting for ACK...", "->".cyan());
+                }
+                wait_for_ack(ctx, packet_id, self.timeout_secs, &dest_label).await?;
+            } else if ctx.json {
+                let result = SendResultJson {
+                    dest: dest_label.to_string(),
+                    channel: self.channel.channel(),
+                    status: "sent".to_string(),
+                    rtt_ms: None,
+                    error: None,
+                };
+                println!("{}", serde_json::to_string_pretty(&result)?);
             }
         } else {
             ctx.api
@@ -92,12 +117,23 @@ impl Command for SendCommand {
                 )
                 .await?;
 
-            println!(
-                "{} Message sent to {} on channel {}",
-                "ok".green(),
-                dest_label.bold(),
-                self.channel.channel()
-            );
+            if ctx.json {
+                let result = SendResultJson {
+                    dest: dest_label.to_string(),
+                    channel: self.channel.channel(),
+                    status: "sent".to_string(),
+                    rtt_ms: None,
+                    error: None,
+                };
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                println!(
+                    "{} Message sent to {} on channel {}",
+                    "ok".green(),
+                    dest_label.bold(),
+                    self.channel.channel()
+                );
+            }
         }
 
         Ok(())
@@ -110,6 +146,8 @@ async fn wait_for_ack(
     timeout_secs: u64,
     dest_label: &str,
 ) -> anyhow::Result<()> {
+    let json = ctx.json;
+    let channel = 0u32; // ACK tracking doesn't know channel; use 0
     let start = Instant::now();
     let timeout = Duration::from_secs(timeout_secs);
 
@@ -129,12 +167,23 @@ async fn wait_for_ack(
 
         match packet {
             Err(_) => {
-                println!(
-                    "{} Timeout after {}s — no ACK from {}",
-                    "x".red(),
-                    timeout_secs,
-                    dest_label
-                );
+                if json {
+                    let result = SendResultJson {
+                        dest: dest_label.to_string(),
+                        channel,
+                        status: "timeout".to_string(),
+                        rtt_ms: None,
+                        error: Some(format!("Timeout after {}s", timeout_secs)),
+                    };
+                    println!("{}", serde_json::to_string_pretty(&result)?);
+                } else {
+                    println!(
+                        "{} Timeout after {}s — no ACK from {}",
+                        "x".red(),
+                        timeout_secs,
+                        dest_label
+                    );
+                }
                 return Ok(());
             }
             Ok(None) => bail!("Disconnected while waiting for ACK"),
@@ -158,33 +207,65 @@ async fn wait_for_ack(
                     return Ok(());
                 };
 
-                match routing_msg.variant {
-                    Some(routing::Variant::ErrorReason(0)) => {
-                        println!(
-                            "{} ACK from {} in {:.1}s",
-                            "ok".green(),
-                            dest_label.bold(),
-                            rtt.as_secs_f64()
-                        );
-                    }
-                    Some(routing::Variant::ErrorReason(code)) => {
-                        let reason = routing::Error::try_from(code)
-                            .map(|e| format!("{:?}", e))
-                            .unwrap_or_else(|_| format!("code {}", code));
-                        println!(
-                            "{} NAK from {}: {} ({:.1}s)",
-                            "x".red(),
-                            dest_label,
-                            reason,
-                            rtt.as_secs_f64()
-                        );
-                    }
-                    _ => {
-                        println!(
-                            "{} Unexpected routing response ({:.1}s)",
-                            "?".yellow(),
-                            rtt.as_secs_f64()
-                        );
+                if json {
+                    let result = match routing_msg.variant {
+                        Some(routing::Variant::ErrorReason(0)) => SendResultJson {
+                            dest: dest_label.to_string(),
+                            channel,
+                            status: "ack".to_string(),
+                            rtt_ms: Some(rtt.as_millis()),
+                            error: None,
+                        },
+                        Some(routing::Variant::ErrorReason(code)) => {
+                            let reason = routing::Error::try_from(code)
+                                .map(|e| format!("{:?}", e))
+                                .unwrap_or_else(|_| format!("code {}", code));
+                            SendResultJson {
+                                dest: dest_label.to_string(),
+                                channel,
+                                status: "nak".to_string(),
+                                rtt_ms: Some(rtt.as_millis()),
+                                error: Some(reason),
+                            }
+                        }
+                        _ => SendResultJson {
+                            dest: dest_label.to_string(),
+                            channel,
+                            status: "unknown".to_string(),
+                            rtt_ms: Some(rtt.as_millis()),
+                            error: None,
+                        },
+                    };
+                    println!("{}", serde_json::to_string_pretty(&result)?);
+                } else {
+                    match routing_msg.variant {
+                        Some(routing::Variant::ErrorReason(0)) => {
+                            println!(
+                                "{} ACK from {} in {:.1}s",
+                                "ok".green(),
+                                dest_label.bold(),
+                                rtt.as_secs_f64()
+                            );
+                        }
+                        Some(routing::Variant::ErrorReason(code)) => {
+                            let reason = routing::Error::try_from(code)
+                                .map(|e| format!("{:?}", e))
+                                .unwrap_or_else(|_| format!("code {}", code));
+                            println!(
+                                "{} NAK from {}: {} ({:.1}s)",
+                                "x".red(),
+                                dest_label,
+                                reason,
+                                rtt.as_secs_f64()
+                            );
+                        }
+                        _ => {
+                            println!(
+                                "{} Unexpected routing response ({:.1}s)",
+                                "?".yellow(),
+                                rtt.as_secs_f64()
+                            );
+                        }
                     }
                 }
 

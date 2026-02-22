@@ -12,6 +12,8 @@ use meshtastic::protobufs::{
 use meshtastic::utils::generate_rand_id;
 use meshtastic::Message;
 
+use serde_json::json;
+
 use super::{resolve_destination, Command, CommandContext, DestinationSpec};
 
 // ── Telemetry type selection ──────────────────────────────────────
@@ -36,7 +38,7 @@ pub struct RequestTelemetryCommand {
 
 #[async_trait]
 impl Command for RequestTelemetryCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let (packet_dest, dest_label) = resolve_destination(&self.destination, &ctx.node_db)?;
 
         let target_id = match packet_dest {
@@ -132,13 +134,18 @@ impl Command for RequestTelemetryCommand {
 
                     if let Ok(telem) = Telemetry::decode(data.payload.as_slice()) {
                         let elapsed = start.elapsed().as_secs_f64();
-                        println!(
-                            "{} Telemetry from {} (in {:.1}s):",
-                            "ok".green(),
-                            dest_label,
-                            elapsed
-                        );
-                        print_telemetry(&telem);
+                        if ctx.json {
+                            let val = telemetry_to_json(&telem, &dest_label, elapsed);
+                            println!("{}", serde_json::to_string_pretty(&val)?);
+                        } else {
+                            println!(
+                                "{} Telemetry from {} (in {:.1}s):",
+                                "ok".green(),
+                                dest_label,
+                                elapsed
+                            );
+                            print_telemetry(&telem);
+                        }
                         return Ok(());
                     }
                 }
@@ -156,7 +163,7 @@ pub struct RequestPositionCommand {
 
 #[async_trait]
 impl Command for RequestPositionCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let (packet_dest, dest_label) = resolve_destination(&self.destination, &ctx.node_db)?;
 
         let target_id = match packet_dest {
@@ -238,13 +245,27 @@ impl Command for RequestPositionCommand {
 
                     if let Ok(pos) = Position::decode(data.payload.as_slice()) {
                         let elapsed = start.elapsed().as_secs_f64();
-                        println!(
-                            "{} Position from {} (in {:.1}s):",
-                            "ok".green(),
-                            dest_label,
-                            elapsed
-                        );
-                        print_position(&pos);
+                        if ctx.json {
+                            let lat = pos.latitude_i.unwrap_or(0) as f64 / 1e7;
+                            let lon = pos.longitude_i.unwrap_or(0) as f64 / 1e7;
+                            let val = json!({
+                                "source": dest_label,
+                                "rtt_s": elapsed,
+                                "latitude": lat,
+                                "longitude": lon,
+                                "altitude": pos.altitude.unwrap_or(0),
+                                "sats_in_view": pos.sats_in_view,
+                            });
+                            println!("{}", serde_json::to_string_pretty(&val)?);
+                        } else {
+                            println!(
+                                "{} Position from {} (in {:.1}s):",
+                                "ok".green(),
+                                dest_label,
+                                elapsed
+                            );
+                            print_position(&pos);
+                        }
                         return Ok(());
                     }
                 }
@@ -262,7 +283,7 @@ pub struct RequestMetadataCommand {
 
 #[async_trait]
 impl Command for RequestMetadataCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let (packet_dest, dest_label) = resolve_destination(&self.destination, &ctx.node_db)?;
 
         let target_id = match packet_dest {
@@ -353,13 +374,38 @@ impl Command for RequestMetadataCommand {
                         )) = admin.payload_variant
                         {
                             let elapsed = start.elapsed().as_secs_f64();
-                            println!(
-                                "{} Metadata from {} (in {:.1}s):",
-                                "ok".green(),
-                                dest_label,
-                                elapsed
-                            );
-                            print_metadata(&meta);
+                            if ctx.json {
+                                let hw = HardwareModel::try_from(meta.hw_model)
+                                    .map(|m| m.as_str_name().to_string())
+                                    .unwrap_or_else(|_| format!("Unknown({})", meta.hw_model));
+                                let role =
+                                    protobufs::config::device_config::Role::try_from(meta.role)
+                                        .map(|r| format!("{:?}", r))
+                                        .unwrap_or_else(|_| meta.role.to_string());
+                                let val = json!({
+                                    "source": dest_label,
+                                    "rtt_s": elapsed,
+                                    "firmware_version": meta.firmware_version,
+                                    "device_state_version": meta.device_state_version,
+                                    "hw_model": hw,
+                                    "role": role,
+                                    "can_shutdown": meta.can_shutdown,
+                                    "has_wifi": meta.has_wifi,
+                                    "has_bluetooth": meta.has_bluetooth,
+                                    "has_ethernet": meta.has_ethernet,
+                                    "has_remote_hardware": meta.has_remote_hardware,
+                                    "has_pkc": meta.has_pkc,
+                                });
+                                println!("{}", serde_json::to_string_pretty(&val)?);
+                            } else {
+                                println!(
+                                    "{} Metadata from {} (in {:.1}s):",
+                                    "ok".green(),
+                                    dest_label,
+                                    elapsed
+                                );
+                                print_metadata(&meta);
+                            }
                             return Ok(());
                         }
                     }
@@ -615,6 +661,69 @@ fn print_metadata(meta: &protobufs::DeviceMetadata) {
         meta.has_remote_hardware
     );
     println!("  {:<28} {}", "has_pkc:".dimmed(), meta.has_pkc);
+}
+
+fn telemetry_to_json(telem: &Telemetry, source: &str, rtt_s: f64) -> serde_json::Value {
+    let data = match &telem.variant {
+        Some(telemetry::Variant::DeviceMetrics(m)) => json!({
+            "type": "device",
+            "battery_level": m.battery_level,
+            "voltage": m.voltage,
+            "channel_utilization": m.channel_utilization,
+            "air_util_tx": m.air_util_tx,
+            "uptime_seconds": m.uptime_seconds,
+        }),
+        Some(telemetry::Variant::EnvironmentMetrics(m)) => json!({
+            "type": "environment",
+            "temperature": m.temperature,
+            "relative_humidity": m.relative_humidity,
+            "barometric_pressure": m.barometric_pressure,
+        }),
+        Some(telemetry::Variant::PowerMetrics(m)) => json!({
+            "type": "power",
+            "ch1_voltage": m.ch1_voltage,
+            "ch1_current": m.ch1_current,
+            "ch2_voltage": m.ch2_voltage,
+            "ch2_current": m.ch2_current,
+            "ch3_voltage": m.ch3_voltage,
+            "ch3_current": m.ch3_current,
+        }),
+        Some(telemetry::Variant::AirQualityMetrics(m)) => json!({
+            "type": "air_quality",
+            "pm10_standard": m.pm10_standard,
+            "pm25_standard": m.pm25_standard,
+            "pm100_standard": m.pm100_standard,
+            "co2": m.co2,
+        }),
+        Some(telemetry::Variant::LocalStats(m)) => json!({
+            "type": "local_stats",
+            "uptime_seconds": m.uptime_seconds,
+            "channel_utilization": m.channel_utilization,
+            "air_util_tx": m.air_util_tx,
+            "packets_tx": m.num_packets_tx,
+            "packets_rx": m.num_packets_rx,
+            "packets_rx_bad": m.num_packets_rx_bad,
+            "online_nodes": m.num_online_nodes,
+            "total_nodes": m.num_total_nodes,
+        }),
+        Some(telemetry::Variant::HealthMetrics(m)) => json!({
+            "type": "health",
+            "heart_bpm": m.heart_bpm,
+            "sp_o2": m.sp_o2,
+        }),
+        Some(telemetry::Variant::HostMetrics(m)) => json!({
+            "type": "host",
+            "uptime_seconds": m.uptime_seconds,
+            "freemem_bytes": m.freemem_bytes,
+            "diskfree1_bytes": m.diskfree1_bytes,
+        }),
+        None => json!({"type": "empty"}),
+    };
+    json!({
+        "source": source,
+        "rtt_s": rtt_s,
+        "telemetry": data,
+    })
 }
 
 fn format_uptime(seconds: u32) -> String {

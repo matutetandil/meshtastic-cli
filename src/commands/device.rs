@@ -21,8 +21,8 @@ pub struct RebootCommand {
 
 #[async_trait]
 impl Command for RebootCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
-        let (target_id, label) = resolve_target(&self.destination, &ctx)?;
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
+        let (target_id, label) = resolve_target(&self.destination, ctx)?;
 
         println!(
             "{} Rebooting {} in {} seconds...",
@@ -32,7 +32,7 @@ impl Command for RebootCommand {
         );
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             target_id,
             admin_message::PayloadVariant::RebootSeconds(self.delay_secs),
         )
@@ -53,8 +53,8 @@ pub struct ShutdownCommand {
 
 #[async_trait]
 impl Command for ShutdownCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
-        let (target_id, label) = resolve_target(&self.destination, &ctx)?;
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
+        let (target_id, label) = resolve_target(&self.destination, ctx)?;
 
         println!(
             "{} Shutting down {} in {} seconds...",
@@ -64,7 +64,7 @@ impl Command for ShutdownCommand {
         );
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             target_id,
             admin_message::PayloadVariant::ShutdownSeconds(self.delay_secs),
         )
@@ -82,7 +82,7 @@ pub struct FactoryResetCommand;
 
 #[async_trait]
 impl Command for FactoryResetCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
         let label = format!("local device (!{:08x})", my_id);
 
@@ -93,7 +93,7 @@ impl Command for FactoryResetCommand {
         );
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::FactoryResetConfig(5),
         )
@@ -111,18 +111,13 @@ pub struct ResetNodeDbCommand;
 
 #[async_trait]
 impl Command for ResetNodeDbCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
         let label = format!("local device (!{:08x})", my_id);
 
         println!("{} Resetting NodeDB on {}...", "->".cyan(), label.bold());
 
-        send_admin_message(
-            &mut ctx,
-            my_id,
-            admin_message::PayloadVariant::NodedbReset(5),
-        )
-        .await?;
+        send_admin_message(ctx, my_id, admin_message::PayloadVariant::NodedbReset(5)).await?;
 
         println!("{} NodeDB reset command sent.", "ok".green());
 
@@ -138,7 +133,7 @@ pub struct SetTimeCommand {
 
 #[async_trait]
 impl Command for SetTimeCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let timestamp = self.time.unwrap_or_else(|| {
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -155,7 +150,7 @@ impl Command for SetTimeCommand {
         );
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::SetTimeOnly(timestamp),
         )
@@ -174,14 +169,14 @@ pub struct SetCannedMessageCommand {
 
 #[async_trait]
 impl Command for SetCannedMessageCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
         let count = self.message.split('|').count();
 
         println!("{} Setting {} canned message(s)...", "->".cyan(), count);
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::SetCannedMessageModuleMessages(self.message.clone()),
         )
@@ -200,7 +195,7 @@ pub struct GetCannedMessageCommand {
 
 #[async_trait]
 impl Command for GetCannedMessageCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
         let packet_id = generate_rand_id();
 
@@ -303,13 +298,13 @@ pub struct SetRingtoneCommand {
 
 #[async_trait]
 impl Command for SetRingtoneCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
 
         println!("{} Setting ringtone: {}", "->".cyan(), self.ringtone.bold());
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::SetRingtoneMessage(self.ringtone.clone()),
         )
@@ -328,7 +323,7 @@ pub struct GetRingtoneCommand {
 
 #[async_trait]
 impl Command for GetRingtoneCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
         let packet_id = generate_rand_id();
 
@@ -425,8 +420,8 @@ pub struct RebootOtaCommand {
 
 #[async_trait]
 impl Command for RebootOtaCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
-        let (target_id, label) = resolve_target(&self.destination, &ctx)?;
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
+        let (target_id, label) = resolve_target(&self.destination, ctx)?;
 
         println!(
             "{} Rebooting {} into OTA mode in {} seconds...",
@@ -436,7 +431,7 @@ impl Command for RebootOtaCommand {
         );
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             target_id,
             admin_message::PayloadVariant::RebootOtaSeconds(self.delay_secs),
         )
@@ -454,14 +449,14 @@ pub struct EnterDfuCommand;
 
 #[async_trait]
 impl Command for EnterDfuCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
         let label = format!("local device (!{:08x})", my_id);
 
         println!("{} Entering DFU mode on {}...", "->".cyan(), label.bold());
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::EnterDfuModeRequest(true),
         )
@@ -479,7 +474,7 @@ pub struct FactoryResetDeviceCommand;
 
 #[async_trait]
 impl Command for FactoryResetDeviceCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_id = ctx.node_db.my_node_num();
         let label = format!("local device (!{:08x})", my_id);
 
@@ -490,7 +485,7 @@ impl Command for FactoryResetDeviceCommand {
         );
 
         send_admin_message(
-            &mut ctx,
+            ctx,
             my_id,
             admin_message::PayloadVariant::FactoryResetDevice(5),
         )

@@ -8,8 +8,19 @@ use meshtastic::protobufs::mesh_packet::PayloadVariant as MeshPayload;
 use meshtastic::protobufs::{self, routing, Data, MeshPacket, PortNum, Routing};
 use meshtastic::utils::generate_rand_id;
 use meshtastic::Message;
+use serde::Serialize;
 
 use super::{resolve_destination, Command, CommandContext, DestinationSpec};
+
+#[derive(Serialize)]
+struct PingJson {
+    dest: String,
+    status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rtt_ms: Option<u128>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
 
 pub struct PingCommand {
     pub destination: DestinationSpec,
@@ -18,7 +29,7 @@ pub struct PingCommand {
 
 #[async_trait]
 impl Command for PingCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let (packet_dest, dest_label) = resolve_destination(&self.destination, &ctx.node_db)?;
 
         let target_node_id = match packet_dest {
@@ -65,12 +76,22 @@ impl Command for PingCommand {
 
             match packet {
                 Err(_) => {
-                    println!(
-                        "{} Timeout after {}s — no ACK from {}",
-                        "✗".red(),
-                        self.timeout_secs,
-                        dest_label
-                    );
+                    if ctx.json {
+                        let result = PingJson {
+                            dest: dest_label.to_string(),
+                            status: "timeout".to_string(),
+                            rtt_ms: None,
+                            error: Some(format!("Timeout after {}s", self.timeout_secs)),
+                        };
+                        println!("{}", serde_json::to_string_pretty(&result)?);
+                    } else {
+                        println!(
+                            "{} Timeout after {}s — no ACK from {}",
+                            "✗".red(),
+                            self.timeout_secs,
+                            dest_label
+                        );
+                    }
                     return Ok(());
                 }
                 Ok(None) => {
@@ -99,34 +120,63 @@ impl Command for PingCommand {
                         return Ok(());
                     };
 
-                    match routing_msg.variant {
-                        Some(routing::Variant::ErrorReason(0)) => {
-                            println!(
-                                "{} ACK from {} in {:.1}s",
-                                "✓".green(),
-                                dest_label.bold(),
-                                rtt.as_secs_f64()
-                            );
-                        }
-                        Some(routing::Variant::ErrorReason(code)) => {
-                            let reason = routing::Error::try_from(code)
-                                .map(|e| format!("{:?}", e))
-                                .unwrap_or_else(|_| format!("code {}", code));
-                            println!(
-                                "{} NAK from {}: {} ({:.1}s)",
-                                "✗".red(),
-                                dest_label,
-                                reason,
-                                rtt.as_secs_f64()
-                            );
-                        }
-                        _ => {
-                            println!(
-                                "{} Unexpected routing response from {} ({:.1}s)",
-                                "?".yellow(),
-                                dest_label,
-                                rtt.as_secs_f64()
-                            );
+                    if ctx.json {
+                        let result = match routing_msg.variant {
+                            Some(routing::Variant::ErrorReason(0)) => PingJson {
+                                dest: dest_label.to_string(),
+                                status: "ack".to_string(),
+                                rtt_ms: Some(rtt.as_millis()),
+                                error: None,
+                            },
+                            Some(routing::Variant::ErrorReason(code)) => {
+                                let reason = routing::Error::try_from(code)
+                                    .map(|e| format!("{:?}", e))
+                                    .unwrap_or_else(|_| format!("code {}", code));
+                                PingJson {
+                                    dest: dest_label.to_string(),
+                                    status: "nak".to_string(),
+                                    rtt_ms: Some(rtt.as_millis()),
+                                    error: Some(reason),
+                                }
+                            }
+                            _ => PingJson {
+                                dest: dest_label.to_string(),
+                                status: "unknown".to_string(),
+                                rtt_ms: Some(rtt.as_millis()),
+                                error: None,
+                            },
+                        };
+                        println!("{}", serde_json::to_string_pretty(&result)?);
+                    } else {
+                        match routing_msg.variant {
+                            Some(routing::Variant::ErrorReason(0)) => {
+                                println!(
+                                    "{} ACK from {} in {:.1}s",
+                                    "✓".green(),
+                                    dest_label.bold(),
+                                    rtt.as_secs_f64()
+                                );
+                            }
+                            Some(routing::Variant::ErrorReason(code)) => {
+                                let reason = routing::Error::try_from(code)
+                                    .map(|e| format!("{:?}", e))
+                                    .unwrap_or_else(|_| format!("code {}", code));
+                                println!(
+                                    "{} NAK from {}: {} ({:.1}s)",
+                                    "✗".red(),
+                                    dest_label,
+                                    reason,
+                                    rtt.as_secs_f64()
+                                );
+                            }
+                            _ => {
+                                println!(
+                                    "{} Unexpected routing response from {} ({:.1}s)",
+                                    "?".yellow(),
+                                    dest_label,
+                                    rtt.as_secs_f64()
+                                );
+                            }
                         }
                     }
 

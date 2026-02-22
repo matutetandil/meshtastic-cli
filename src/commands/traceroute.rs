@@ -8,8 +8,27 @@ use meshtastic::protobufs::mesh_packet::PayloadVariant as MeshPayload;
 use meshtastic::protobufs::{self, Data, MeshPacket, PortNum, RouteDiscovery};
 use meshtastic::utils::generate_rand_id;
 use meshtastic::Message;
+use serde::Serialize;
 
 use super::{resolve_destination, Command, CommandContext, DestinationSpec};
+
+#[derive(Serialize)]
+struct TracerouteJson {
+    dest: String,
+    rtt_ms: u128,
+    hops: Vec<TracerouteHopJson>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    return_hops: Vec<TracerouteHopJson>,
+}
+
+#[derive(Serialize)]
+struct TracerouteHopJson {
+    node_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    snr_db: Option<f64>,
+}
 
 pub struct TracerouteCommand {
     pub destination: DestinationSpec,
@@ -18,7 +37,7 @@ pub struct TracerouteCommand {
 
 #[async_trait]
 impl Command for TracerouteCommand {
-    async fn execute(self: Box<Self>, mut ctx: CommandContext) -> anyhow::Result<()> {
+    async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let (packet_dest, dest_label) = resolve_destination(&self.destination, &ctx.node_db)?;
 
         let target_node_id = match packet_dest {
@@ -120,7 +139,18 @@ impl Command for TracerouteCommand {
                         return Ok(());
                     };
 
-                    print_route(&route, my_node_num, target_node_id, &dest_label, rtt, &ctx);
+                    if ctx.json {
+                        print_route_json(
+                            &route,
+                            my_node_num,
+                            target_node_id,
+                            &dest_label,
+                            rtt,
+                            ctx,
+                        )?;
+                    } else {
+                        print_route(&route, my_node_num, target_node_id, &dest_label, rtt, ctx);
+                    }
 
                     return Ok(());
                 }
@@ -219,4 +249,62 @@ fn print_route(
         rtt.as_secs_f64(),
         route.route.len() + 1
     );
+}
+
+fn print_route_json(
+    route: &RouteDiscovery,
+    my_node_num: u32,
+    target_node_id: u32,
+    dest_label: &str,
+    rtt: Duration,
+    ctx: &CommandContext,
+) -> anyhow::Result<()> {
+    let make_hop = |num: u32, snr_list: &[i32], idx: usize| -> TracerouteHopJson {
+        TracerouteHopJson {
+            node_id: format!("!{:08x}", num),
+            name: ctx.node_db.node_name(num).map(|s| s.to_string()),
+            snr_db: snr_list.get(idx).map(|&s| s as f64 / 4.0),
+        }
+    };
+
+    let mut hops = Vec::new();
+    hops.push(TracerouteHopJson {
+        node_id: format!("!{:08x}", my_node_num),
+        name: ctx.node_db.node_name(my_node_num).map(|s| s.to_string()),
+        snr_db: None,
+    });
+    for (i, &node_num) in route.route.iter().enumerate() {
+        hops.push(make_hop(node_num, &route.snr_towards, i));
+    }
+    hops.push(make_hop(
+        target_node_id,
+        &route.snr_towards,
+        route.route.len(),
+    ));
+
+    let mut return_hops = Vec::new();
+    if !route.route_back.is_empty() {
+        return_hops.push(TracerouteHopJson {
+            node_id: format!("!{:08x}", target_node_id),
+            name: ctx.node_db.node_name(target_node_id).map(|s| s.to_string()),
+            snr_db: None,
+        });
+        for (i, &node_num) in route.route_back.iter().enumerate() {
+            return_hops.push(make_hop(node_num, &route.snr_back, i));
+        }
+        return_hops.push(make_hop(
+            my_node_num,
+            &route.snr_back,
+            route.route_back.len(),
+        ));
+    }
+
+    let result = TracerouteJson {
+        dest: dest_label.to_string(),
+        rtt_ms: rtt.as_millis(),
+        hops,
+        return_hops,
+    };
+    println!("{}", serde_json::to_string_pretty(&result)?);
+    Ok(())
 }

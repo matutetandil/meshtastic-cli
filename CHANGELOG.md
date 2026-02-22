@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `--json` global flag to emit structured JSON output on all data-returning commands: `nodes`, `info`, `support`, `ping`, `send`, `traceroute`, `position get`, `channel list`, `channel qr`, `config get`, `listen`, `reply`, `gpio read`, `gpio watch`, `request telemetry`, `request position`, and `request metadata`
+- `completions` command to generate shell completion scripts for bash, zsh, fish, PowerShell, and Elvish; writes to stdout for easy integration with shell startup files
+- `config-file` command for managing persistent CLI configuration stored at `~/.config/meshtastic-cli/config.toml`, with four subcommands: `show` (display current config), `set` (write a key/value pair), `unset` (remove a key), and `path` (print the config file location)
+- Persistent CLI config file support: values for `host`, `port`, `serial`, `ble`, and `json` are read from `~/.config/meshtastic-cli/config.toml` at startup and merged with command-line flags; CLI flags always take precedence over config file values
+- `waypoint send` command to create and broadcast a waypoint to the mesh, with options for `--name`, `--description`, `--icon` (emoji or Unicode codepoint), `--expire` (Unix timestamp or relative duration), and `--locked` (restrict edits to the sending node)
+- `waypoint delete` command to remove an existing waypoint by its numeric ID
+- `waypoint list` command to listen for incoming `WAYPOINT_APP` packets and display received waypoints, with a configurable `--timeout`
+- `watch` command for a live-updating node table that clears and redraws the terminal at a configurable `--interval` (default 5 s), showing the same columns as `nodes` with automatic refresh until interrupted
+- `listen --log <file>` flag to write every received packet as a JSON Lines record to a file alongside the existing terminal output, enabling offline analysis without interrupting the live display
+- `mqtt bridge` command for bidirectional mesh-to-MQTT bridging: publishes decoded packets to `{prefix}/messages`, `{prefix}/telemetry/{node}`, and `{prefix}/position/{node}` topics, and subscribes to `{prefix}/send` to forward MQTT messages back into the mesh; supports `--broker`, `--port`, `--prefix`, `--username`, and `--password` options
+- `shell` command for an interactive REPL that accepts the same subcommands as the top-level CLI; features persistent command history saved at `~/.config/meshtastic-cli/history.txt`, tab completion for command names and subcommands, and a colored prompt displaying the current connection target
+
+### Changed
+
+- `Command` trait refactored so `execute` takes `&self` and `&mut CommandContext` instead of `Box<Self>`, enabling commands to be invoked multiple times within a single REPL session without consuming ownership
+- `create_command` factory return type updated to `Box<dyn Command + Send>` to satisfy the `Send` bound required for async command dispatch inside the REPL task
+
+### Dependencies Added
+
+- `clap_complete` for shell completion script generation
+- `serde_json` for JSON-formatted output across all data-returning commands
+- `toml` and `dirs` for persistent config file parsing and platform-appropriate path resolution
+- `crossterm` for terminal manipulation (clear-screen, cursor control) used by the `watch` command
+- `rumqttc` for async MQTT client support in the `mqtt bridge` command
+- `rustyline` for readline-style line editing and persistent history in the `shell` REPL
+- `shlex` for shell-style tokenization of REPL input lines before dispatch
+
 ## [0.3.0] - 2026-02-20
 
 ### Added
