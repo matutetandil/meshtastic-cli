@@ -31,6 +31,7 @@ pub struct SendCommand {
     pub wait_ack: bool,
     pub timeout_secs: u64,
     pub private: bool,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -80,7 +81,7 @@ impl Command for SendCommand {
                 )))
                 .await?;
 
-            if !ctx.json {
+            if !self.json {
                 let port_label = if self.private { " (private)" } else { "" };
                 println!(
                     "{} Message{} sent to {} on channel {}",
@@ -92,11 +93,11 @@ impl Command for SendCommand {
             }
 
             if self.wait_ack {
-                if !ctx.json {
+                if !self.json {
                     println!("{} Waiting for ACK...", "->".cyan());
                 }
-                wait_for_ack(ctx, packet_id, self.timeout_secs, &dest_label).await?;
-            } else if ctx.json {
+                wait_for_ack(ctx, packet_id, self.timeout_secs, &dest_label, self.json).await?;
+            } else if self.json {
                 let result = SendResultJson {
                     dest: dest_label.to_string(),
                     channel: self.channel.channel(),
@@ -117,7 +118,7 @@ impl Command for SendCommand {
                 )
                 .await?;
 
-            if ctx.json {
+            if self.json {
                 let result = SendResultJson {
                     dest: dest_label.to_string(),
                     channel: self.channel.channel(),
@@ -145,8 +146,8 @@ async fn wait_for_ack(
     packet_id: u32,
     timeout_secs: u64,
     dest_label: &str,
+    json: bool,
 ) -> anyhow::Result<()> {
-    let json = ctx.json;
     let channel = 0u32; // ACK tracking doesn't know channel; use 0
     let start = Instant::now();
     let timeout = Duration::from_secs(timeout_secs);

@@ -88,7 +88,9 @@ impl Command for PositionRemoveCommand {
 
 // ── PositionGetCommand ────────────────────────────────────────────
 
-pub struct PositionGetCommand;
+pub struct PositionGetCommand {
+    pub json: bool,
+}
 
 #[async_trait]
 impl Command for PositionGetCommand {
@@ -106,7 +108,7 @@ impl Command for PositionGetCommand {
                     .map(|s| s.as_str_name().to_string())
                     .unwrap_or_else(|_| pos.location_source.to_string());
 
-                if ctx.json {
+                if self.json {
                     let json = PositionJson {
                         latitude: lat,
                         longitude: lon,
@@ -147,7 +149,7 @@ impl Command for PositionGetCommand {
                 println!("  {:<20} {}", "location_source:".dimmed(), source);
             }
             None => {
-                if ctx.json {
+                if self.json {
                     println!("null");
                     return Ok(());
                 }

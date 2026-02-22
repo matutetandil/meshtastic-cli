@@ -5,7 +5,9 @@ use serde::Serialize;
 
 use super::{Command, CommandContext};
 
-pub struct SupportCommand;
+pub struct SupportCommand {
+    pub json: bool,
+}
 
 #[derive(Serialize)]
 struct SupportJson {
@@ -70,7 +72,7 @@ impl Command for SupportCommand {
                 .unwrap_or_else(|_| l.modem_preset.to_string())
         });
 
-        if ctx.json {
+        if self.json {
             let info = SupportJson {
                 cli_version: env!("CARGO_PKG_VERSION").to_string(),
                 firmware_version: meta.map(|m| m.firmware_version.clone()),

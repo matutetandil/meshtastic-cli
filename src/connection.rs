@@ -5,6 +5,7 @@ use meshtastic::utils;
 use crate::cli::ConnectionArgs;
 use crate::error::CliError;
 use crate::node_db::NodeDb;
+use crate::node_db_builder;
 
 pub struct EstablishedConnection {
     pub api: ConnectedStreamApi,
@@ -40,7 +41,8 @@ pub async fn establish(args: &ConnectionArgs) -> Result<EstablishedConnection, C
         .await
         .map_err(|e| CliError::Configuration(e.to_string()))?;
 
-    let node_db = NodeDb::collect_initial(&mut packet_receiver, config_id, args.no_nodes).await?;
+    let node_db =
+        node_db_builder::collect_initial(&mut packet_receiver, config_id, args.no_nodes).await?;
     log::info!(
         "Connected. Local node: !{:08x}, {} nodes in mesh",
         node_db.my_node_num(),

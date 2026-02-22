@@ -21,6 +21,7 @@ use serializer::*;
 
 pub struct ConfigGetCommand {
     pub section: Option<ConfigSection>,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -29,7 +30,7 @@ impl Command for ConfigGetCommand {
         let config = ctx.node_db.local_config();
         let module = ctx.node_db.local_module_config();
 
-        if ctx.json {
+        if self.json {
             let result = match &self.section {
                 None => {
                     let mut map = serde_json::Map::new();

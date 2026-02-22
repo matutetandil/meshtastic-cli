@@ -34,7 +34,9 @@ struct ChannelQrJson {
 
 // ── ChannelListCommand ─────────────────────────────────────────────
 
-pub struct ChannelListCommand;
+pub struct ChannelListCommand {
+    pub json: bool,
+}
 
 #[async_trait]
 impl Command for ChannelListCommand {
@@ -42,7 +44,7 @@ impl Command for ChannelListCommand {
         let channels = ctx.node_db.channels();
 
         if channels.is_empty() {
-            if ctx.json {
+            if self.json {
                 println!("[]");
             } else {
                 println!("{}", "(no channels configured)".dimmed());
@@ -50,7 +52,7 @@ impl Command for ChannelListCommand {
             return Ok(());
         }
 
-        if ctx.json {
+        if self.json {
             let json_channels: Vec<ChannelListJson> = channels
                 .iter()
                 .filter(|ch| ch.role != channel::Role::Disabled as i32)
@@ -289,6 +291,7 @@ impl Command for ChannelSetCommand {
 pub struct ChannelQrCommand {
     pub output: Option<String>,
     pub all: bool,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -312,7 +315,7 @@ impl Command for ChannelQrCommand {
                 bail!("--all and --output cannot be used together");
             }
 
-            if ctx.json {
+            if self.json {
                 let mut results = Vec::new();
                 for ch in &active_channels {
                     let Some(settings) = ch.settings.clone() else {
@@ -381,7 +384,7 @@ impl Command for ChannelQrCommand {
             let b64 = base64_url_encode(&encoded);
             let url = format!("https://meshtastic.org/e/#{}", b64);
 
-            if ctx.json {
+            if self.json {
                 let result = ChannelQrJson {
                     channel_name: None,
                     channel_index: None,
@@ -485,7 +488,7 @@ fn parse_psk(value: &str) -> anyhow::Result<Vec<u8>> {
         }
         _ => {
             let hex = value.strip_prefix("0x").unwrap_or(value);
-            let bytes = hex_decode(hex)?;
+            let bytes = super::parsers::hex_decode(hex)?;
             match bytes.len() {
                 16 | 32 => Ok(bytes),
                 _ => bail!(
@@ -495,19 +498,6 @@ fn parse_psk(value: &str) -> anyhow::Result<Vec<u8>> {
             }
         }
     }
-}
-
-fn hex_decode(hex: &str) -> anyhow::Result<Vec<u8>> {
-    if !hex.len().is_multiple_of(2) {
-        bail!("Hex string must have even length");
-    }
-    (0..hex.len())
-        .step_by(2)
-        .map(|i| {
-            u8::from_str_radix(&hex[i..i + 2], 16)
-                .map_err(|_| anyhow::anyhow!("Invalid hex character in '{}'", &hex[i..i + 2]))
-        })
-        .collect()
 }
 
 fn rand_byte() -> u8 {

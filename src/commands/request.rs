@@ -49,6 +49,7 @@ pub struct RequestTelemetryCommand {
     pub destination: DestinationSpec,
     pub timeout_secs: u64,
     pub telemetry_type: TelemetryType,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -149,7 +150,7 @@ impl Command for RequestTelemetryCommand {
 
                     if let Ok(telem) = Telemetry::decode(data.payload.as_slice()) {
                         let elapsed = start.elapsed().as_secs_f64();
-                        if ctx.json {
+                        if self.json {
                             let val = telemetry_to_json(&telem, &dest_label, elapsed);
                             println!("{}", serde_json::to_string_pretty(&val)?);
                         } else {
@@ -174,6 +175,7 @@ impl Command for RequestTelemetryCommand {
 pub struct RequestPositionCommand {
     pub destination: DestinationSpec,
     pub timeout_secs: u64,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -260,7 +262,7 @@ impl Command for RequestPositionCommand {
 
                     if let Ok(pos) = Position::decode(data.payload.as_slice()) {
                         let elapsed = start.elapsed().as_secs_f64();
-                        if ctx.json {
+                        if self.json {
                             let lat = pos.latitude_i.unwrap_or(0) as f64 / 1e7;
                             let lon = pos.longitude_i.unwrap_or(0) as f64 / 1e7;
                             let val = json!({
@@ -294,6 +296,7 @@ impl Command for RequestPositionCommand {
 pub struct RequestMetadataCommand {
     pub destination: DestinationSpec,
     pub timeout_secs: u64,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -389,7 +392,7 @@ impl Command for RequestMetadataCommand {
                         )) = admin.payload_variant
                         {
                             let elapsed = start.elapsed().as_secs_f64();
-                            if ctx.json {
+                            if self.json {
                                 let hw = HardwareModel::try_from(meta.hw_model)
                                     .map(|m| m.as_str_name().to_string())
                                     .unwrap_or_else(|_| format!("Unknown({})", meta.hw_model));
@@ -458,7 +461,11 @@ fn print_telemetry(telem: &Telemetry) {
             }
             if let Some(up) = m.uptime_seconds {
                 if up > 0 {
-                    println!("    {:<24} {}", "uptime:".dimmed(), format_uptime(up));
+                    println!(
+                        "    {:<24} {}",
+                        "uptime:".dimmed(),
+                        super::parsers::format_uptime(up, false)
+                    );
                 }
             }
         }
@@ -544,7 +551,7 @@ fn print_telemetry(telem: &Telemetry) {
                 println!(
                     "    {:<24} {}",
                     "uptime:".dimmed(),
-                    format_uptime(m.uptime_seconds)
+                    super::parsers::format_uptime(m.uptime_seconds, false)
                 );
             }
             println!(
@@ -584,7 +591,7 @@ fn print_telemetry(telem: &Telemetry) {
                 println!(
                     "    {:<24} {}",
                     "uptime:".dimmed(),
-                    format_uptime(m.uptime_seconds)
+                    super::parsers::format_uptime(m.uptime_seconds, false)
                 );
             }
             if m.freemem_bytes > 0 {
@@ -739,17 +746,4 @@ fn telemetry_to_json(telem: &Telemetry, source: &str, rtt_s: f64) -> serde_json:
         "rtt_s": rtt_s,
         "telemetry": data,
     })
-}
-
-fn format_uptime(seconds: u32) -> String {
-    let d = seconds / 86400;
-    let h = (seconds % 86400) / 3600;
-    let m = (seconds % 3600) / 60;
-    if d > 0 {
-        format!("{}d {}h {}m", d, h, m)
-    } else if h > 0 {
-        format!("{}h {}m", h, m)
-    } else {
-        format!("{}m", m)
-    }
 }

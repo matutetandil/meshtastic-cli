@@ -5,7 +5,9 @@ use serde::Serialize;
 
 use super::{Command, CommandContext};
 
-pub struct InfoCommand;
+pub struct InfoCommand {
+    pub json: bool,
+}
 
 #[derive(Serialize)]
 struct InfoJson {
@@ -59,7 +61,7 @@ impl Command for InfoCommand {
         let local_node = node_db.local_node();
         let metadata = node_db.metadata();
 
-        if ctx.json {
+        if self.json {
             let user = local_node.and_then(|n| n.user.as_ref());
             let metrics = local_node.and_then(|n| n.device_metrics.as_ref());
             let pos = local_node.and_then(|n| n.position.as_ref());
@@ -262,24 +264,7 @@ fn print_device_metrics(metrics: &protobufs::DeviceMetrics) {
         print_field("Air util. TX", &format!("{:.1}%", at));
     }
     if let Some(up) = metrics.uptime_seconds {
-        print_field("Uptime", &format_uptime(up));
-    }
-}
-
-fn format_uptime(seconds: u32) -> String {
-    let days = seconds / 86400;
-    let hours = (seconds % 86400) / 3600;
-    let mins = (seconds % 3600) / 60;
-    let secs = seconds % 60;
-
-    if days > 0 {
-        format!("{}d {}h {}m", days, hours, mins)
-    } else if hours > 0 {
-        format!("{}h {}m {}s", hours, mins, secs)
-    } else if mins > 0 {
-        format!("{}m {}s", mins, secs)
-    } else {
-        format!("{}s", secs)
+        print_field("Uptime", &super::parsers::format_uptime(up, true));
     }
 }
 

@@ -25,6 +25,7 @@ struct PingJson {
 pub struct PingCommand {
     pub destination: DestinationSpec,
     pub timeout_secs: u64,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -76,7 +77,7 @@ impl Command for PingCommand {
 
             match packet {
                 Err(_) => {
-                    if ctx.json {
+                    if self.json {
                         let result = PingJson {
                             dest: dest_label.to_string(),
                             status: "timeout".to_string(),
@@ -120,7 +121,7 @@ impl Command for PingCommand {
                         return Ok(());
                     };
 
-                    if ctx.json {
+                    if self.json {
                         let result = match routing_msg.variant {
                             Some(routing::Variant::ErrorReason(0)) => PingJson {
                                 dest: dest_label.to_string(),

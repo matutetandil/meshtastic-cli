@@ -14,6 +14,7 @@ use super::{Command, CommandContext};
 
 pub struct WatchCommand {
     pub interval_secs: u64,
+    pub json: bool,
 }
 
 #[derive(Serialize)]
@@ -29,7 +30,7 @@ struct WatchNodeJson {
 impl Command for WatchCommand {
     async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_node_num = ctx.node_db.my_node_num();
-        let json = ctx.json;
+        let json = self.json;
         let mut interval = tokio::time::interval(Duration::from_secs(self.interval_secs));
 
         // Initial render

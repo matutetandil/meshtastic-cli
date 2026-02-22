@@ -35,6 +35,47 @@ pub fn parse_u64(value: &str) -> anyhow::Result<u64> {
         .map_err(|_| anyhow::anyhow!("Invalid u64 value '{}'", value))
 }
 
+pub fn format_uptime(seconds: u32, include_seconds: bool) -> String {
+    let days = seconds / 86400;
+    let hours = (seconds % 86400) / 3600;
+    let mins = (seconds % 3600) / 60;
+    let secs = seconds % 60;
+
+    if days > 0 {
+        format!("{}d {}h {}m", days, hours, mins)
+    } else if hours > 0 {
+        if include_seconds {
+            format!("{}h {}m {}s", hours, mins, secs)
+        } else {
+            format!("{}h {}m", hours, mins)
+        }
+    } else if include_seconds {
+        if mins > 0 {
+            format!("{}m {}s", mins, secs)
+        } else {
+            format!("{}s", secs)
+        }
+    } else {
+        format!("{}m", mins)
+    }
+}
+
+pub fn hex_decode(hex: &str) -> anyhow::Result<Vec<u8>> {
+    if hex.is_empty() {
+        return Ok(vec![]);
+    }
+    if !hex.len().is_multiple_of(2) {
+        bail!("Hex string must have even length");
+    }
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| {
+            u8::from_str_radix(&hex[i..i + 2], 16)
+                .map_err(|_| anyhow::anyhow!("Invalid hex character in '{}'", &hex[i..i + 2]))
+        })
+        .collect()
+}
+
 pub fn parse_enum_i32(value: &str, variants: &[(&str, i32)]) -> anyhow::Result<i32> {
     let upper = value.to_uppercase();
     for (name, val) in variants {

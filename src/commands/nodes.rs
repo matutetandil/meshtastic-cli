@@ -21,6 +21,7 @@ const ALL_FIELDS: &[&str] = &[
 
 pub struct NodesCommand {
     pub fields: Option<Vec<String>>,
+    pub json: bool,
 }
 
 #[derive(Serialize)]
@@ -98,7 +99,7 @@ impl Command for NodesCommand {
         let nodes = ctx.node_db.nodes();
 
         if nodes.is_empty() {
-            if ctx.json {
+            if self.json {
                 println!("[]");
             } else {
                 println!("No nodes found in mesh.");
@@ -109,7 +110,7 @@ impl Command for NodesCommand {
         let mut sorted_nodes: Vec<_> = nodes.values().collect();
         sorted_nodes.sort_by_key(|n| n.num);
 
-        if ctx.json {
+        if self.json {
             let json_nodes: Vec<NodeJson> = sorted_nodes
                 .iter()
                 .map(|n| node_to_json(n, n.num == local_node_num))

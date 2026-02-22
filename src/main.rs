@@ -4,6 +4,7 @@ mod config_file;
 mod connection;
 mod error;
 mod node_db;
+mod node_db_builder;
 mod router;
 
 use clap::Parser;
@@ -53,10 +54,9 @@ async fn main() -> anyhow::Result<()> {
         node_db: conn.node_db,
         packet_receiver: conn.packet_receiver,
         router,
-        json: cli.connection.json,
     };
 
-    let command = create_command(cmd)?;
+    let command = create_command(cmd, cli.connection.json)?;
     command.execute(&mut ctx).await?;
 
     Ok(())

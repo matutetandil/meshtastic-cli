@@ -33,6 +33,7 @@ struct TracerouteHopJson {
 pub struct TracerouteCommand {
     pub destination: DestinationSpec,
     pub timeout_secs: u64,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -139,7 +140,7 @@ impl Command for TracerouteCommand {
                         return Ok(());
                     };
 
-                    if ctx.json {
+                    if self.json {
                         print_route_json(
                             &route,
                             my_node_num,

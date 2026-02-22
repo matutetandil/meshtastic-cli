@@ -24,6 +24,7 @@ pub struct WaypointSendCommand {
     pub expire_hours: Option<u32>,
     pub channel: MeshChannel,
     pub locked: bool,
+    pub json: bool,
 }
 
 #[derive(Serialize)]
@@ -84,7 +85,7 @@ impl Command for WaypointSendCommand {
             icon,
         };
 
-        if !ctx.json {
+        if !self.json {
             println!(
                 "{} Sending waypoint '{}' ({}, {}) to {}...",
                 "->".cyan(),
@@ -99,7 +100,7 @@ impl Command for WaypointSendCommand {
             .send_waypoint(&mut ctx.router, waypoint, dest, true, self.channel)
             .await?;
 
-        if ctx.json {
+        if self.json {
             let result = WaypointSendJson {
                 id: 0,
                 name: self.name.clone(),
@@ -130,6 +131,7 @@ pub struct WaypointDeleteCommand {
     pub id: u32,
     pub destination: DestinationSpec,
     pub channel: MeshChannel,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -144,7 +146,7 @@ impl Command for WaypointDeleteCommand {
             ..Default::default()
         };
 
-        if !ctx.json {
+        if !self.json {
             println!(
                 "{} Deleting waypoint {} on {}...",
                 "->".cyan(),
@@ -157,7 +159,7 @@ impl Command for WaypointDeleteCommand {
             .send_waypoint(&mut ctx.router, waypoint, dest, true, self.channel)
             .await?;
 
-        if ctx.json {
+        if self.json {
             println!(
                 "{}",
                 serde_json::json!({
@@ -178,6 +180,7 @@ impl Command for WaypointDeleteCommand {
 
 pub struct WaypointListCommand {
     pub timeout_secs: u64,
+    pub json: bool,
 }
 
 #[derive(Serialize)]
@@ -198,7 +201,7 @@ struct WaypointJson {
 #[async_trait]
 impl Command for WaypointListCommand {
     async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
-        if !ctx.json {
+        if !self.json {
             println!(
                 "{} Listening for waypoints for {}s... Press {} to stop.\n",
                 "->".cyan(),
@@ -242,7 +245,7 @@ impl Command for WaypointListCommand {
                     let lat = wp.latitude_i.unwrap_or(0) as f64 / 1e7;
                     let lon = wp.longitude_i.unwrap_or(0) as f64 / 1e7;
 
-                    if ctx.json {
+                    if self.json {
                         let entry = WaypointJson {
                             id: wp.id,
                             name: wp.name.clone(),
@@ -294,7 +297,7 @@ impl Command for WaypointListCommand {
             }
         }
 
-        if !ctx.json {
+        if !self.json {
             println!(
                 "{} Received {} waypoint(s) in {}s.",
                 "ok".green(),

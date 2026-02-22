@@ -17,6 +17,7 @@ pub struct MqttBridgeCommand {
     pub topic_prefix: String,
     pub username: Option<String>,
     pub password: Option<String>,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -37,7 +38,7 @@ impl Command for MqttBridgeCommand {
         let send_topic = format!("{}/send", self.topic_prefix);
         client.subscribe(&send_topic, QoS::AtLeastOnce).await?;
 
-        if !ctx.json {
+        if !self.json {
             println!(
                 "{} MQTT bridge started: {}:{}",
                 "->".cyan(),
@@ -53,7 +54,7 @@ impl Command for MqttBridgeCommand {
             );
         }
 
-        let json = ctx.json;
+        let json = self.json;
         let prefix = self.topic_prefix.clone();
         let client_pub = client.clone();
 

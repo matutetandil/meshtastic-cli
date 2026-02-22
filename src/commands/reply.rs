@@ -28,13 +28,15 @@ struct ReplyEventJson {
 
 const BROADCAST_ADDR: u32 = 0xFFFFFFFF;
 
-pub struct ReplyCommand;
+pub struct ReplyCommand {
+    pub json: bool,
+}
 
 #[async_trait]
 impl Command for ReplyCommand {
     async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
         let my_node = ctx.node_db.my_node_num();
-        let json = ctx.json;
+        let json = self.json;
 
         if !json {
             println!(

@@ -87,6 +87,7 @@ pub struct GpioReadCommand {
     pub destination: DestinationSpec,
     pub mask: u64,
     pub timeout_secs: u64,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -177,7 +178,7 @@ impl Command for GpioReadCommand {
                     }
                     if let Ok(hw_msg) = HardwareMessage::decode(data.payload.as_slice()) {
                         if hw_msg.r#type == hardware_message::Type::ReadGpiosReply as i32 {
-                            if ctx.json {
+                            if self.json {
                                 let result = GpioJson {
                                     event: "read".to_string(),
                                     mask: format!("0x{:x}", hw_msg.gpio_mask),
@@ -209,6 +210,7 @@ impl Command for GpioReadCommand {
 pub struct GpioWatchCommand {
     pub destination: DestinationSpec,
     pub mask: u64,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -270,7 +272,7 @@ impl Command for GpioWatchCommand {
             }
             if let Ok(hw_msg) = HardwareMessage::decode(data.payload.as_slice()) {
                 if hw_msg.r#type == hardware_message::Type::GpiosChanged as i32 {
-                    if ctx.json {
+                    if self.json {
                         let event = GpioJson {
                             event: "changed".to_string(),
                             mask: format!("0x{:x}", hw_msg.gpio_mask),

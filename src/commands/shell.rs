@@ -15,31 +15,23 @@ use crate::commands::create_command;
 
 pub struct ShellCommand;
 
-const COMMAND_NAMES: &[&str] = &[
-    "nodes",
-    "send",
-    "listen",
-    "info",
-    "config",
-    "node",
-    "position",
-    "request",
-    "device",
-    "channel",
-    "reply",
-    "gpio",
-    "support",
-    "traceroute",
-    "ping",
-    "waypoint",
-    "mqtt",
-    "watch",
-    "help",
-    "exit",
-    "quit",
-];
+const SHELL_BLOCKED: &[&str] = &["shell", "completions", "config-file"];
 
-struct ShellHelper;
+fn get_command_names() -> Vec<String> {
+    use clap::CommandFactory;
+    let mut names: Vec<String> = crate::cli::Cli::command()
+        .get_subcommands()
+        .map(|sub| sub.get_name().to_string())
+        .filter(|n| !SHELL_BLOCKED.contains(&n.as_str()))
+        .collect();
+    names.extend(["help", "exit", "quit"].iter().map(|s| s.to_string()));
+    names.sort();
+    names
+}
+
+struct ShellHelper {
+    command_names: Vec<String>,
+}
 
 impl Helper for ShellHelper {}
 impl Validator for ShellHelper {}
@@ -68,12 +60,13 @@ impl Completer for ShellHelper {
         let word_start = prefix.rfind(' ').map(|i| i + 1).unwrap_or(0);
         let partial = &prefix[word_start..];
 
-        let candidates: Vec<Pair> = COMMAND_NAMES
+        let candidates: Vec<Pair> = self
+            .command_names
             .iter()
             .filter(|name| name.starts_with(partial))
             .map(|name| Pair {
-                display: name.to_string(),
-                replacement: name.to_string(),
+                display: name.clone(),
+                replacement: name.clone(),
             })
             .collect();
 
@@ -94,7 +87,9 @@ impl Command for ShellCommand {
         let history_path = crate::config_file::config_dir().join("history.txt");
         let _ = std::fs::create_dir_all(crate::config_file::config_dir());
 
-        let helper = ShellHelper;
+        let helper = ShellHelper {
+            command_names: get_command_names(),
+        };
         let mut rl = Editor::new()?;
         rl.set_helper(Some(helper));
         let _ = rl.load_history(&history_path);
@@ -121,26 +116,13 @@ impl Command for ShellCommand {
                         _ => {}
                     }
 
-                    // Prevent nested shell
-                    if trimmed == "shell" || trimmed.starts_with("shell ") {
-                        println!("{} Cannot nest shell sessions.", "x".red());
-                        continue;
-                    }
-
-                    // Prevent completions in shell
-                    if trimmed == "completions" || trimmed.starts_with("completions ") {
+                    // Block commands that don't work inside the shell
+                    let first_word = trimmed.split_whitespace().next().unwrap_or("");
+                    if SHELL_BLOCKED.contains(&first_word) {
                         println!(
-                            "{} Use completions from the command line, not inside the shell.",
-                            "x".red()
-                        );
-                        continue;
-                    }
-
-                    // Prevent config-file in shell
-                    if trimmed == "config-file" || trimmed.starts_with("config-file ") {
-                        println!(
-                            "{} Use config-file from the command line, not inside the shell.",
-                            "x".red()
+                            "{} Use '{}' from the command line, not inside the shell.",
+                            "x".red(),
+                            first_word
                         );
                         continue;
                     }
@@ -159,7 +141,7 @@ impl Command for ShellCommand {
                     full_args.extend(args);
 
                     match parse_shell_command(&full_args) {
-                        Ok(cmd_enum) => match create_command(&cmd_enum) {
+                        Ok(cmd_enum) => match create_command(&cmd_enum, false) {
                             Ok(command) => {
                                 if let Err(e) = command.execute(ctx).await {
                                     println!("{} {}", "Error:".red(), e);
@@ -199,7 +181,6 @@ impl Command for ShellCommand {
 fn parse_shell_command(args: &[String]) -> Result<Commands, String> {
     use clap::Parser;
 
-    // Try parsing as a full CLI invocation (meshtastic-cli <subcommand> ...)
     match crate::cli::Cli::try_parse_from(args) {
         Ok(cli) => match cli.command {
             Some(cmd) => Ok(cmd),
@@ -210,29 +191,23 @@ fn parse_shell_command(args: &[String]) -> Result<Commands, String> {
 }
 
 fn print_help() {
+    use clap::CommandFactory;
+
     println!("{}", "Available commands:".bold());
-    let commands: &[(&str, &str)] = &[
-        ("nodes", "List all nodes in the mesh network"),
-        ("send", "Send a text message"),
-        ("listen", "Stream incoming packets"),
-        ("info", "Show local node/device info"),
-        ("config", "Get/set device configuration"),
-        ("channel", "Manage channels"),
-        ("node", "Node management"),
-        ("position", "GPS position management"),
-        ("request", "Request data from remote nodes"),
-        ("device", "Device management"),
-        ("traceroute", "Trace route to a node"),
-        ("ping", "Ping a node"),
-        ("reply", "Auto-reply with signal info"),
-        ("gpio", "Remote GPIO operations"),
-        ("support", "Print diagnostic info"),
-        ("waypoint", "Waypoint management"),
-        ("mqtt", "MQTT bridge"),
-        ("watch", "Live-updating node table"),
-        ("exit/quit", "Exit the shell"),
-    ];
-    for (name, desc) in commands {
+
+    let app = crate::cli::Cli::command();
+    let mut entries: Vec<(&str, String)> = app
+        .get_subcommands()
+        .filter(|sub| !SHELL_BLOCKED.contains(&sub.get_name()))
+        .map(|sub| {
+            let desc = sub.get_about().map(|a| a.to_string()).unwrap_or_default();
+            (sub.get_name(), desc)
+        })
+        .collect();
+    entries.sort_by_key(|(name, _)| *name);
+    entries.push(("exit/quit", "Exit the shell".to_string()));
+
+    for (name, desc) in &entries {
         println!("  {:<16} {}", name, desc);
     }
     println!(

@@ -719,7 +719,7 @@ fn import_channels(value: &Value) -> anyhow::Result<Vec<protobufs::Channel>> {
         let psk = if psk_hex.is_empty() {
             vec![1] // default
         } else {
-            hex_decode(psk_hex)?
+            super::parsers::hex_decode(psk_hex)?
         };
 
         let uplink = m
@@ -755,20 +755,4 @@ fn import_channels(value: &Value) -> anyhow::Result<Vec<protobufs::Channel>> {
     }
 
     Ok(channels)
-}
-
-fn hex_decode(hex: &str) -> anyhow::Result<Vec<u8>> {
-    if hex.is_empty() {
-        return Ok(vec![]);
-    }
-    if !hex.len().is_multiple_of(2) {
-        bail!("Hex string must have even length");
-    }
-    (0..hex.len())
-        .step_by(2)
-        .map(|i| {
-            u8::from_str_radix(&hex[i..i + 2], 16)
-                .map_err(|_| anyhow::anyhow!("Invalid hex character in '{}'", &hex[i..i + 2]))
-        })
-        .collect()
 }

@@ -33,6 +33,7 @@ const BROADCAST_ADDR: u32 = 0xFFFFFFFF;
 
 pub struct ListenCommand {
     pub log_path: Option<PathBuf>,
+    pub json: bool,
 }
 
 #[async_trait]
@@ -41,7 +42,7 @@ impl Command for ListenCommand {
         let mut log_writer = match &self.log_path {
             Some(path) => {
                 let file = std::fs::File::create(path)?;
-                if !ctx.json {
+                if !self.json {
                     println!(
                         "{} Logging packets to {}",
                         "->".cyan(),
@@ -53,7 +54,7 @@ impl Command for ListenCommand {
             None => None,
         };
 
-        if !ctx.json {
+        if !self.json {
             println!(
                 "{} Listening for packets... Press {} to stop.\n",
                 "→".cyan(),
@@ -66,7 +67,7 @@ impl Command for ListenCommand {
                 continue;
             };
 
-            if ctx.json {
+            if self.json {
                 print_packet_json(&mesh_packet, &ctx.node_db);
             } else {
                 print_packet(&mesh_packet, &ctx.node_db);
@@ -77,7 +78,7 @@ impl Command for ListenCommand {
             }
         }
 
-        if !ctx.json {
+        if !self.json {
             println!("\nDisconnected from device.");
         }
         Ok(())

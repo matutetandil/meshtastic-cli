@@ -45,7 +45,6 @@ pub struct CommandContext {
     pub node_db: NodeDb,
     pub packet_receiver: PacketReceiver,
     pub router: MeshRouter,
-    pub json: bool,
 }
 
 #[async_trait]
@@ -53,7 +52,7 @@ pub trait Command {
     async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()>;
 }
 
-pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, CliError> {
+pub fn create_command(command: &Commands, json: bool) -> Result<Box<dyn Command + Send>, CliError> {
     match command {
         Commands::Nodes { fields } => {
             let parsed_fields = fields
@@ -61,14 +60,16 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                 .map(|f| f.split(',').map(|s| s.trim().to_string()).collect());
             Ok(Box::new(nodes::NodesCommand {
                 fields: parsed_fields,
+                json,
             }))
         }
         Commands::Listen { log } => Ok(Box::new(listen::ListenCommand {
             log_path: log.as_ref().map(std::path::PathBuf::from),
+            json,
         })),
-        Commands::Reply => Ok(Box::new(reply::ReplyCommand)),
+        Commands::Reply => Ok(Box::new(reply::ReplyCommand { json })),
         Commands::Shell => Ok(Box::new(shell::ShellCommand)),
-        Commands::Support => Ok(Box::new(support::SupportCommand)),
+        Commands::Support => Ok(Box::new(support::SupportCommand { json })),
         Commands::Gpio { action } => match action {
             GpioAction::Write {
                 dest,
@@ -100,6 +101,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                     destination,
                     mask: mask_val,
                     timeout_secs: *timeout,
+                    json,
                 }))
             }
             GpioAction::Watch { dest, to, mask } => {
@@ -109,6 +111,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                 Ok(Box::new(gpio::GpioWatchCommand {
                     destination,
                     mask: mask_val,
+                    json,
                 }))
             }
         },
@@ -125,12 +128,14 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                 topic_prefix: topic.clone(),
                 username: username.clone(),
                 password: password.clone(),
+                json,
             })),
         },
         Commands::Watch { interval } => Ok(Box::new(watch::WatchCommand {
             interval_secs: *interval,
+            json,
         })),
-        Commands::Info => Ok(Box::new(info::InfoCommand)),
+        Commands::Info => Ok(Box::new(info::InfoCommand { json })),
         Commands::Send {
             message,
             dest,
@@ -151,6 +156,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                 wait_ack: *ack,
                 timeout_secs: *timeout,
                 private: *private,
+                json,
             }))
         }
         Commands::Ping { dest, to, timeout } => {
@@ -158,6 +164,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
             Ok(Box::new(ping::PingCommand {
                 destination,
                 timeout_secs: *timeout,
+                json,
             }))
         }
         Commands::Traceroute { dest, to, timeout } => {
@@ -165,6 +172,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
             Ok(Box::new(traceroute::TracerouteCommand {
                 destination,
                 timeout_secs: *timeout,
+                json,
             }))
         }
         Commands::Node { action } => match action {
@@ -197,7 +205,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
             }
         },
         Commands::Position { action } => match action {
-            PositionAction::Get => Ok(Box::new(position::PositionGetCommand)),
+            PositionAction::Get => Ok(Box::new(position::PositionGetCommand { json })),
             PositionAction::Set {
                 lat,
                 lon,
@@ -230,6 +238,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                     destination,
                     timeout_secs: *timeout,
                     telemetry_type: r#type.into(),
+                    json,
                 }))
             }
             RequestAction::Position { dest, to, timeout } => {
@@ -237,6 +246,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                 Ok(Box::new(request::RequestPositionCommand {
                     destination,
                     timeout_secs: *timeout,
+                    json,
                 }))
             }
             RequestAction::Metadata { dest, to, timeout } => {
@@ -244,6 +254,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                 Ok(Box::new(request::RequestMetadataCommand {
                     destination,
                     timeout_secs: *timeout,
+                    json,
                 }))
             }
         },
@@ -292,7 +303,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
             DeviceAction::FactoryResetDevice => Ok(Box::new(device::FactoryResetDeviceCommand)),
         },
         Commands::Channel { action } => match action {
-            ChannelAction::List => Ok(Box::new(channel::ChannelListCommand)),
+            ChannelAction::List => Ok(Box::new(channel::ChannelListCommand { json })),
             ChannelAction::Add { name, psk } => Ok(Box::new(channel::ChannelAddCommand {
                 name: name.clone(),
                 psk: psk.clone(),
@@ -312,11 +323,13 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
             ChannelAction::Qr { output, all } => Ok(Box::new(channel::ChannelQrCommand {
                 output: output.clone(),
                 all: *all,
+                json,
             })),
         },
         Commands::Config { action } => match action {
             ConfigAction::Get { section } => Ok(Box::new(config::ConfigGetCommand {
                 section: section.clone(),
+                json,
             })),
             ConfigAction::Set { key, value } => Ok(Box::new(config::ConfigSetCommand {
                 key: key.clone(),
@@ -379,6 +392,7 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                     expire_hours: *expire,
                     channel: mesh_channel,
                     locked: *locked,
+                    json,
                 }))
             }
             WaypointAction::Delete {
@@ -394,10 +408,12 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                     id: *id,
                     destination,
                     channel: mesh_channel,
+                    json,
                 }))
             }
             WaypointAction::List { timeout } => Ok(Box::new(waypoint::WaypointListCommand {
                 timeout_secs: *timeout,
+                json,
             })),
         },
         Commands::Completions { .. } | Commands::ConfigFile { .. } => {

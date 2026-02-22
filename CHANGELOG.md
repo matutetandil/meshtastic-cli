@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README.md condensed from ~2000 lines to ~200 lines as a landing page, with detailed documentation moved to mdBook site
 - `Command` trait refactored so `execute` takes `&self` and `&mut CommandContext` instead of `Box<Self>`, enabling commands to be invoked multiple times within a single REPL session without consuming ownership
 - `create_command` factory return type updated to `Box<dyn Command + Send>` to satisfy the `Send` bound required for async command dispatch inside the REPL task
+- Extracted `format_uptime()` and `hex_decode()` into shared `parsers` module, removing duplication across info, request, channel, and export_import modules
+- Separated startup protocol from `NodeDb` into dedicated `node_db_builder` module; `NodeDb` is now a pure data container with constructor
+- Shell command names and help descriptions derived dynamically from Clap metadata instead of hard-coded list
+- Moved `json` flag from `CommandContext` to individual command structs, decoupling presentation concerns from execution context
 
 ### Dependencies Added
 
