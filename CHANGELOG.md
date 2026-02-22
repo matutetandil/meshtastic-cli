@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Full documentation site built with mdBook, deployed to GitHub Pages at `https://matutetandil.github.io/meshtastic-cli`
+- Documentation pages for all commands organized by category: messaging, network, config, channel, device, node, position, request, GPIO, waypoint, watch, MQTT bridge, shell, completions, and config-file
+- Architecture, development, installation, usage, and contributing guides
+- GitHub Actions workflow for automatic documentation deployment on push to `main`
 - `--json` global flag to emit structured JSON output on all data-returning commands: `nodes`, `info`, `support`, `ping`, `send`, `traceroute`, `position get`, `channel list`, `channel qr`, `config get`, `listen`, `reply`, `gpio read`, `gpio watch`, `request telemetry`, `request position`, and `request metadata`
 - `completions` command to generate shell completion scripts for bash, zsh, fish, PowerShell, and Elvish; writes to stdout for easy integration with shell startup files
 - `config-file` command for managing persistent CLI configuration stored at `~/.config/meshtastic-cli/config.toml`, with four subcommands: `show` (display current config), `set` (write a key/value pair), `unset` (remove a key), and `path` (print the config file location)
@@ -23,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- README.md condensed from ~2000 lines to ~200 lines as a landing page, with detailed documentation moved to mdBook site
 - `Command` trait refactored so `execute` takes `&self` and `&mut CommandContext` instead of `Box<Self>`, enabling commands to be invoked multiple times within a single REPL session without consuming ownership
 - `create_command` factory return type updated to `Box<dyn Command + Send>` to satisfy the `Send` bound required for async command dispatch inside the REPL task
 
