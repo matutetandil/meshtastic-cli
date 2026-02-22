@@ -20,9 +20,21 @@ pub struct AppConfig {
 }
 
 pub fn config_dir() -> PathBuf {
-    dirs::config_dir()
+    let new_dir = dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("meshtastic-cli")
+        .join("mttctl");
+
+    // One-time migration from old name
+    if !new_dir.exists() {
+        let old_dir = dirs::config_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("meshtastic-cli");
+        if old_dir.exists() {
+            let _ = std::fs::rename(&old_dir, &new_dir);
+        }
+    }
+
+    new_dir
 }
 
 pub fn config_path() -> PathBuf {

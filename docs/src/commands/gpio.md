@@ -8,13 +8,13 @@ Write a value to GPIO pins on a remote node. The mask specifies which pins to af
 
 ```bash
 # Set GPIO pin 4 high on a remote node (mask and value in decimal)
-meshtastic-cli gpio write --dest 04e1c43b --mask 16 --value 16
+mttctl gpio write --dest 04e1c43b --mask 16 --value 16
 
 # Set GPIO pin 4 high (mask and value in hex)
-meshtastic-cli gpio write --dest 04e1c43b --mask 0x10 --value 0x10
+mttctl gpio write --dest 04e1c43b --mask 0x10 --value 0x10
 
 # Set pin 4 high and pin 5 low
-meshtastic-cli gpio write --to Pedro --mask 0x30 --value 0x10
+mttctl gpio write --to Pedro --mask 0x30 --value 0x10
 ```
 
 | Option | Description |
@@ -32,13 +32,13 @@ Read the current state of GPIO pins from a remote node.
 
 ```bash
 # Read pins 4 and 5 from a remote node (mask in decimal)
-meshtastic-cli gpio read --dest 04e1c43b --mask 48
+mttctl gpio read --dest 04e1c43b --mask 48
 
 # Read using hex mask
-meshtastic-cli gpio read --to Pedro --mask 0x30
+mttctl gpio read --to Pedro --mask 0x30
 
 # Custom timeout
-meshtastic-cli gpio read --dest 04e1c43b --mask 0x10 --timeout 60
+mttctl gpio read --dest 04e1c43b --mask 0x10 --timeout 60
 ```
 
 | Option | Description |
@@ -64,10 +64,10 @@ Watch for GPIO state changes on a remote node. Runs continuously until interrupt
 
 ```bash
 # Watch pins 4 and 5
-meshtastic-cli gpio watch --dest 04e1c43b --mask 0x30
+mttctl gpio watch --dest 04e1c43b --mask 0x30
 
 # Watch by node name
-meshtastic-cli gpio watch --to Pedro --mask 0x10
+mttctl gpio watch --to Pedro --mask 0x10
 ```
 
 | Option | Description |

@@ -8,10 +8,10 @@ Broadcast or unicast a new waypoint to the mesh.
 
 ```bash
 # Send a waypoint broadcast to all nodes
-meshtastic-cli waypoint send --name "Base Camp" --lat 40.4168 --lon -3.7038
+mttctl waypoint send --name "Base Camp" --lat 40.4168 --lon -3.7038
 
 # Send a waypoint with full options
-meshtastic-cli waypoint send \
+mttctl waypoint send \
   --name "Checkpoint A" \
   --lat 40.4168 \
   --lon -3.7038 \
@@ -39,7 +39,7 @@ meshtastic-cli waypoint send \
 Delete a waypoint by its numeric ID.
 
 ```bash
-meshtastic-cli waypoint delete --id 42
+mttctl waypoint delete --id 42
 ```
 
 | Option | Description |
@@ -53,5 +53,5 @@ meshtastic-cli waypoint delete --id 42
 List all waypoints known to the local node. Listens for incoming waypoint packets with a configurable timeout.
 
 ```bash
-meshtastic-cli waypoint list
+mttctl waypoint list
 ```

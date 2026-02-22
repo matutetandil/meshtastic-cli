@@ -8,25 +8,25 @@ Request telemetry data from a remote node. Use `--type` to select a specific tel
 
 ```bash
 # Request device telemetry (battery, voltage, channel utilization)
-meshtastic-cli request telemetry --dest 04e1c43b
+mttctl request telemetry --dest 04e1c43b
 
 # Request environment telemetry (temperature, humidity, pressure)
-meshtastic-cli request telemetry --to Pedro --type environment
+mttctl request telemetry --to Pedro --type environment
 
 # Request air quality metrics (PM1.0, PM2.5, PM10.0, CO2, VOC)
-meshtastic-cli request telemetry --dest 04e1c43b --type air-quality
+mttctl request telemetry --dest 04e1c43b --type air-quality
 
 # Request power metrics (voltage/current per channel)
-meshtastic-cli request telemetry --dest 04e1c43b --type power
+mttctl request telemetry --dest 04e1c43b --type power
 
 # Request local stats (uptime, packets tx/rx, air utilization)
-meshtastic-cli request telemetry --dest 04e1c43b --type local-stats
+mttctl request telemetry --dest 04e1c43b --type local-stats
 
 # Request health metrics (heart rate, SpO2)
-meshtastic-cli request telemetry --dest 04e1c43b --type health
+mttctl request telemetry --dest 04e1c43b --type health
 
 # Request host metrics (free memory, disk, load average)
-meshtastic-cli request telemetry --dest 04e1c43b --type host
+mttctl request telemetry --dest 04e1c43b --type host
 ```
 
 | Option | Description |
@@ -44,7 +44,7 @@ Request position data from a remote node.
 
 ```bash
 # Request by node ID
-meshtastic-cli request position --dest 04e1c43b
+mttctl request position --dest 04e1c43b
 ```
 
 | Option | Description |
@@ -60,10 +60,10 @@ Request device metadata (firmware version, hardware model, capabilities) from a 
 
 ```bash
 # Request by node ID
-meshtastic-cli request metadata --dest 04e1c43b
+mttctl request metadata --dest 04e1c43b
 
 # Request by name with custom timeout
-meshtastic-cli request metadata --to Pedro --timeout 60
+mttctl request metadata --to Pedro --timeout 60
 ```
 
 | Option | Description |

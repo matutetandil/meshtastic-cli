@@ -4,13 +4,13 @@ Displays the node table as a live-updating view that refreshes periodically in p
 
 ```bash
 # Watch node table, refresh every 30 seconds (default)
-meshtastic-cli watch
+mttctl watch
 
 # Refresh every 10 seconds
-meshtastic-cli watch --interval 10
+mttctl watch --interval 10
 
 # Watch with a custom field set
-meshtastic-cli watch --fields id,name,battery,snr --interval 15
+mttctl watch --fields id,name,battery,snr --interval 15
 ```
 
 | Option | Description |
@@ -21,7 +21,7 @@ meshtastic-cli watch --fields id,name,battery,snr --interval 15
 Example output (refreshes in place):
 
 ```
-meshtastic-cli watch  --  refreshing every 30s  --  last update: 15:30:00  --  Ctrl+C to stop
+mttctl watch  --  refreshing every 30s  --  last update: 15:30:00  --  Ctrl+C to stop
 
   ID          Name          Battery   SNR     Hops   Last Heard
   !04e1c43b   Pedro         85%       8.5     0      just now

@@ -6,13 +6,13 @@ Sends a ping to a specific node and measures the round-trip time by waiting for 
 
 ```bash
 # Ping by node ID
-meshtastic-cli ping --dest 04e1c43b
+mttctl ping --dest 04e1c43b
 
 # Ping by name
-meshtastic-cli ping --to Pedro
+mttctl ping --to Pedro
 
 # Custom timeout (default: 30s)
-meshtastic-cli ping --dest 04e1c43b --timeout 60
+mttctl ping --dest 04e1c43b --timeout 60
 ```
 
 | Option      | Description                                            |
@@ -43,13 +43,13 @@ Traces the route to a destination node, showing each hop along the path with SNR
 
 ```bash
 # Traceroute by node ID
-meshtastic-cli traceroute --dest 04e1c43b
+mttctl traceroute --dest 04e1c43b
 
 # Traceroute by name
-meshtastic-cli traceroute --to Pedro
+mttctl traceroute --to Pedro
 
 # Custom timeout (default: 60s)
-meshtastic-cli traceroute --dest 04e1c43b --timeout 120
+mttctl traceroute --dest 04e1c43b --timeout 120
 ```
 
 | Option | Description |

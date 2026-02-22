@@ -4,7 +4,7 @@
 
 ## What it does
 
-`meshtastic-cli` provides a command-line interface to Meshtastic devices, allowing you to list nodes, send messages, monitor incoming packets, query device info, ping specific nodes, manage channels, control GPIO pins, and more — all from a terminal.
+`mttctl` provides a command-line interface to Meshtastic devices, allowing you to list nodes, send messages, monitor incoming packets, query device info, ping specific nodes, manage channels, control GPIO pins, and more — all from a terminal.
 
 ## Why it exists
 

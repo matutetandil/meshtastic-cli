@@ -137,7 +137,7 @@ impl Command for ShellCommand {
                     };
 
                     // Build a full argv with the binary name prepended
-                    let mut full_args = vec!["meshtastic-cli".to_string()];
+                    let mut full_args = vec!["mttctl".to_string()];
                     full_args.extend(args);
 
                     match parse_shell_command(&full_args) {

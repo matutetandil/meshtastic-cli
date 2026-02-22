@@ -10,7 +10,7 @@ main.rs  (argument parsing + dispatch only)
     |
     +---> connection.rs  (TCP, Serial, or BLE -> StreamApi)
     |
-    +---> config_file.rs  (persistent CLI config at ~/.config/meshtastic-cli/config.toml)
+    +---> config_file.rs  (persistent CLI config at ~/.config/mttctl/config.toml)
     |
     +---> commands/
               mod.rs          (Command trait definition)
@@ -42,7 +42,7 @@ main.rs  (argument parsing + dispatch only)
 - **Connection abstraction**: `connection.rs` encapsulates TCP (via `meshtastic`'s `StreamApi`), serial (via `tokio-serial`), and BLE connections, exposing a unified interface to commands.
 - **Error types**: `error.rs` uses `thiserror` for structured, typed errors. `anyhow` is used at the boundary (main) for ergonomic top-level error handling.
 - **Feature flags**: BLE support is gated behind the `ble` Cargo feature to avoid requiring Bluetooth platform libraries in environments that do not need them.
-- **Persistent config**: `config_file.rs` reads `~/.config/meshtastic-cli/config.toml` at startup and merges stored defaults with command-line flags before dispatch, following standard XDG conventions.
+- **Persistent config**: `config_file.rs` reads `~/.config/mttctl/config.toml` at startup and merges stored defaults with command-line flags before dispatch, following standard XDG conventions.
 
 ## Tech Stack
 
@@ -70,7 +70,7 @@ main.rs  (argument parsing + dispatch only)
 ## Project Structure
 
 ```
-meshtastic-cli/
+mttctl/
 ├── Cargo.toml
 ├── Cargo.lock
 ├── config.yaml              # Docker simulator config
@@ -83,7 +83,7 @@ meshtastic-cli/
     ├── main.rs              # CLI parsing and command dispatch only
     ├── cli.rs               # Clap argument and subcommand definitions
     ├── connection.rs        # TCP, serial, and BLE connection handling
-    ├── config_file.rs       # Persistent CLI config (~/.config/meshtastic-cli/config.toml)
+    ├── config_file.rs       # Persistent CLI config (~/.config/mttctl/config.toml)
     ├── error.rs             # Typed error definitions (thiserror)
     ├── node_db.rs           # Node data model and local node database
     ├── router.rs            # Packet routing and dispatch logic

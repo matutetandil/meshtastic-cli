@@ -34,4 +34,4 @@ See the [Architecture](./architecture.md) page for details on the project struct
 
 ## Reporting Issues
 
-If you find a bug or have a feature request, please open an issue at [GitHub Issues](https://github.com/matutetandil/meshtastic-cli/issues).
+If you find a bug or have a feature request, please open an issue at [GitHub Issues](https://github.com/matutetandil/mttctl/issues).

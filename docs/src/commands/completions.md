@@ -4,11 +4,11 @@ Generate shell completion scripts. Once installed, completions enable tab comple
 
 ```bash
 # Print completion script for the current shell to stdout
-meshtastic-cli completions bash
-meshtastic-cli completions zsh
-meshtastic-cli completions fish
-meshtastic-cli completions powershell
-meshtastic-cli completions elvish
+mttctl completions bash
+mttctl completions zsh
+mttctl completions fish
+mttctl completions powershell
+mttctl completions elvish
 ```
 
 | Option | Description |
@@ -20,13 +20,13 @@ meshtastic-cli completions elvish
 ### Bash
 
 ```bash
-meshtastic-cli completions bash > ~/.local/share/bash-completion/completions/meshtastic-cli
+mttctl completions bash > ~/.local/share/bash-completion/completions/mttctl
 ```
 
 ### Zsh
 
 ```bash
-meshtastic-cli completions zsh > ~/.zfunc/_meshtastic-cli
+mttctl completions zsh > ~/.zfunc/_mttctl
 # Then add to ~/.zshrc if not already present:
 # fpath=(~/.zfunc $fpath)
 # autoload -Uz compinit && compinit
@@ -35,5 +35,5 @@ meshtastic-cli completions zsh > ~/.zfunc/_meshtastic-cli
 ### Fish
 
 ```bash
-meshtastic-cli completions fish > ~/.config/fish/completions/meshtastic-cli.fish
+mttctl completions fish > ~/.config/fish/completions/mttctl.fish
 ```

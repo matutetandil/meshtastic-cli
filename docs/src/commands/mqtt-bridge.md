@@ -6,21 +6,21 @@ Bidirectional MQTT bridge. Subscribes to incoming mesh packets and republishes t
 
 ```bash
 # Bridge to a local MQTT broker with default topic prefix
-meshtastic-cli mqtt bridge --broker mqtt://localhost:1883
+mttctl mqtt bridge --broker mqtt://localhost:1883
 
 # Bridge with authentication
-meshtastic-cli mqtt bridge \
+mttctl mqtt bridge \
   --broker mqtt://broker.example.com:1883 \
   --username myuser \
   --password mypassword
 
 # Bridge with a custom topic prefix (default: meshtastic)
-meshtastic-cli mqtt bridge \
+mttctl mqtt bridge \
   --broker mqtt://localhost:1883 \
   --topic my-mesh
 
 # Bridge without bidirectional injection (publish only)
-meshtastic-cli mqtt bridge \
+mttctl mqtt bridge \
   --broker mqtt://localhost:1883 \
   --no-downlink
 ```

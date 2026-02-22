@@ -5,7 +5,7 @@
 Lists all nodes currently known to the connected device.
 
 ```bash
-meshtastic-cli nodes
+mttctl nodes
 ```
 
 Output columns:
@@ -23,10 +23,10 @@ Use `--fields` to select which columns to display. Separate field names with com
 
 ```bash
 # Show only ID, name, and SNR
-meshtastic-cli nodes --fields id,name,snr
+mttctl nodes --fields id,name,snr
 
 # Show extended fields including hardware model, role, and position
-meshtastic-cli nodes --fields id,name,hw_model,role,position
+mttctl nodes --fields id,name,hw_model,role,position
 ```
 
 Available fields:
@@ -51,28 +51,28 @@ Sends a text message to the mesh network. By default the message is broadcast to
 
 ```bash
 # Broadcast a message to all nodes
-meshtastic-cli send "hello mesh"
+mttctl send "hello mesh"
 
 # Send to a specific node by hex ID
-meshtastic-cli send "hello node" --dest 04e1c43b
+mttctl send "hello node" --dest 04e1c43b
 
 # Send to a node by name (searches known nodes, case-insensitive)
-meshtastic-cli send "hello!" --to Pedro
+mttctl send "hello!" --to Pedro
 
 # Send on a specific channel (0-7)
-meshtastic-cli send "hello channel" --channel 1
+mttctl send "hello channel" --channel 1
 
 # Combine destination and channel
-meshtastic-cli send "direct message" --dest 04e1c43b --channel 2
+mttctl send "direct message" --dest 04e1c43b --channel 2
 
 # Wait for delivery confirmation (ACK) before returning
-meshtastic-cli send "confirmed message" --dest 04e1c43b --ack
+mttctl send "confirmed message" --dest 04e1c43b --ack
 
 # Wait for ACK with custom timeout
-meshtastic-cli send "confirmed message" --to Pedro --ack --timeout 60
+mttctl send "confirmed message" --to Pedro --ack --timeout 60
 
 # Send as a private message (PRIVATE_APP port instead of text port)
-meshtastic-cli send "private payload" --dest 04e1c43b --private
+mttctl send "private payload" --dest 04e1c43b --private
 ```
 
 > **Shell note:** The `!` prefix is optional. If you include it, quote or escape it to prevent shell history expansion: `--dest '!04e1c43b'` or `--dest \!04e1c43b`.
@@ -94,13 +94,13 @@ meshtastic-cli send "private payload" --dest 04e1c43b --private
 Streams all incoming packets from the mesh network in real time. Runs continuously until interrupted with Ctrl+C.
 
 ```bash
-meshtastic-cli listen
+mttctl listen
 
 # Write all received packets as JSON Lines to a log file
-meshtastic-cli listen --log packets.jsonl
+mttctl listen --log packets.jsonl
 
 # Continue displaying packets in the terminal while also writing to a log file
-meshtastic-cli listen --log /var/log/meshtastic/packets.jsonl
+mttctl listen --log /var/log/meshtastic/packets.jsonl
 ```
 
 Decodes and displays the following packet types:
@@ -136,7 +136,7 @@ Example output:
 Auto-reply mode. Listens for incoming text messages and automatically replies to each sender with signal information (SNR, RSSI, hops). Useful for range testing and network debugging. Runs continuously until interrupted with Ctrl+C.
 
 ```bash
-meshtastic-cli reply
+mttctl reply
 ```
 
 Example output:
@@ -155,7 +155,7 @@ Example output:
 Displays detailed information about the local node and connected device.
 
 ```bash
-meshtastic-cli info
+mttctl info
 ```
 
 Example output:
@@ -195,13 +195,13 @@ Channels
 Displays a diagnostic summary of the connected device and CLI. Useful for troubleshooting and for sharing device context in bug reports.
 
 ```bash
-meshtastic-cli support
+mttctl support
 ```
 
 Example output:
 
 ```
-meshtastic-cli v0.3.0
+mttctl v0.3.0
 
 Device
   Node ID:        !04e1c43b

@@ -7,7 +7,7 @@ Manage device channels: list, add, delete, modify properties, and generate a QR 
 List all configured channels with their role, encryption, and uplink/downlink status.
 
 ```bash
-meshtastic-cli channel list
+mttctl channel list
 ```
 
 Example output:
@@ -26,16 +26,16 @@ Add a new secondary channel. The channel is placed in the first available slot (
 
 ```bash
 # Add with default encryption key
-meshtastic-cli channel add "Team"
+mttctl channel add "Team"
 
 # Add with a random AES-256 key
-meshtastic-cli channel add "Secure" --psk random
+mttctl channel add "Secure" --psk random
 
 # Add with no encryption
-meshtastic-cli channel add "Open" --psk none
+mttctl channel add "Open" --psk none
 
 # Add with a specific AES-128 key (32 hex characters)
-meshtastic-cli channel add "Custom" --psk d4f1bb3a2029075960bcffabcf4e6901
+mttctl channel add "Custom" --psk d4f1bb3a2029075960bcffabcf4e6901
 ```
 
 | Option | Description |
@@ -50,7 +50,7 @@ meshtastic-cli channel add "Custom" --psk d4f1bb3a2029075960bcffabcf4e6901
 Delete a channel by index. Cannot delete the primary channel (index 0).
 
 ```bash
-meshtastic-cli channel del 1
+mttctl channel del 1
 ```
 
 ---
@@ -61,19 +61,19 @@ Set a property on a specific channel.
 
 ```bash
 # Rename a channel
-meshtastic-cli channel set 1 name "NewName"
+mttctl channel set 1 name "NewName"
 
 # Change encryption key
-meshtastic-cli channel set 1 psk random
+mttctl channel set 1 psk random
 
 # Enable MQTT uplink
-meshtastic-cli channel set 1 uplink_enabled true
+mttctl channel set 1 uplink_enabled true
 
 # Enable MQTT downlink
-meshtastic-cli channel set 1 downlink_enabled true
+mttctl channel set 1 downlink_enabled true
 
 # Set position precision
-meshtastic-cli channel set 0 position_precision 14
+mttctl channel set 0 position_precision 14
 ```
 
 | Field | Description |
@@ -92,16 +92,16 @@ Generate a QR code and shareable meshtastic:// URL for the current channel confi
 
 ```bash
 # Print combined QR code to terminal (all active channels)
-meshtastic-cli channel qr
+mttctl channel qr
 
 # Export combined QR as PNG image (512x512 minimum)
-meshtastic-cli channel qr --output channels.png
+mttctl channel qr --output channels.png
 
 # Export combined QR as SVG image
-meshtastic-cli channel qr --output channels.svg
+mttctl channel qr --output channels.svg
 
 # Print individual QR code per active channel to terminal
-meshtastic-cli channel qr --all
+mttctl channel qr --all
 ```
 
 | Option | Description |

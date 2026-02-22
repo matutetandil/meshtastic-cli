@@ -6,13 +6,13 @@ Set the device owner name (long name and short name). The short name is auto-gen
 
 ```bash
 # Set long name (short name auto-generated as "PD")
-meshtastic-cli node set-owner "Pedro"
+mttctl node set-owner "Pedro"
 
 # Set both long and short name
-meshtastic-cli node set-owner "Pedro's Node" --short PN
+mttctl node set-owner "Pedro's Node" --short PN
 
 # Multi-word names generate initials (e.g. "My Cool Node" -> "MCN")
-meshtastic-cli node set-owner "My Cool Node"
+mttctl node set-owner "My Cool Node"
 ```
 
 | Option | Description |
@@ -28,10 +28,10 @@ Remove a specific node from the local NodeDB. The node can be specified by hex I
 
 ```bash
 # Remove by node ID
-meshtastic-cli node remove --dest 04e1c43b
+mttctl node remove --dest 04e1c43b
 
 # Remove by name
-meshtastic-cli node remove --to Pedro
+mttctl node remove --to Pedro
 ```
 
 | Option | Description |
@@ -47,10 +47,10 @@ Mark a node as a favorite. Favorites are stored on the device and can be used fo
 
 ```bash
 # Mark by node ID
-meshtastic-cli node set-favorite --dest 04e1c43b
+mttctl node set-favorite --dest 04e1c43b
 
 # Mark by name
-meshtastic-cli node set-favorite --to Pedro
+mttctl node set-favorite --to Pedro
 ```
 
 | Option | Description |
@@ -65,8 +65,8 @@ meshtastic-cli node set-favorite --to Pedro
 Remove a node from the favorites list.
 
 ```bash
-meshtastic-cli node remove-favorite --dest 04e1c43b
-meshtastic-cli node remove-favorite --to Pedro
+mttctl node remove-favorite --dest 04e1c43b
+mttctl node remove-favorite --to Pedro
 ```
 
 | Option | Description |
@@ -81,8 +81,8 @@ meshtastic-cli node remove-favorite --to Pedro
 Mark a node as ignored. Ignored nodes are filtered out of mesh activity on the local device.
 
 ```bash
-meshtastic-cli node set-ignored --dest 04e1c43b
-meshtastic-cli node set-ignored --to Pedro
+mttctl node set-ignored --dest 04e1c43b
+mttctl node set-ignored --to Pedro
 ```
 
 | Option | Description |
@@ -97,8 +97,8 @@ meshtastic-cli node set-ignored --to Pedro
 Remove a node from the ignored list.
 
 ```bash
-meshtastic-cli node remove-ignored --dest 04e1c43b
-meshtastic-cli node remove-ignored --to Pedro
+mttctl node remove-ignored --dest 04e1c43b
+mttctl node remove-ignored --to Pedro
 ```
 
 | Option | Description |
@@ -114,13 +114,13 @@ Mark the local node as unmessageable (prevents others from sending direct messag
 
 ```bash
 # Mark as unmessageable (default)
-meshtastic-cli node set-unmessageable
+mttctl node set-unmessageable
 
 # Explicitly mark as unmessageable
-meshtastic-cli node set-unmessageable true
+mttctl node set-unmessageable true
 
 # Restore as messageable
-meshtastic-cli node set-unmessageable false
+mttctl node set-unmessageable false
 ```
 
 | Option | Description |

@@ -1,22 +1,22 @@
 # Config File: config-file
 
-Manage a persistent configuration file stored at `~/.config/meshtastic-cli/config.toml`. Values set here are applied automatically on every invocation, so you do not have to repeat connection options or other defaults on every command. Command-line flags always override config file values.
+Manage a persistent configuration file stored at `~/.config/mttctl/config.toml`. Values set here are applied automatically on every invocation, so you do not have to repeat connection options or other defaults on every command. Command-line flags always override config file values.
 
 ```bash
 # Show current config file contents
-meshtastic-cli config-file show
+mttctl config-file show
 
 # Print the path to the config file
-meshtastic-cli config-file path
+mttctl config-file path
 
 # Set a persistent default value
-meshtastic-cli config-file set host 192.168.1.100
-meshtastic-cli config-file set port 4403
-meshtastic-cli config-file set serial /dev/ttyUSB0
+mttctl config-file set host 192.168.1.100
+mttctl config-file set port 4403
+mttctl config-file set serial /dev/ttyUSB0
 
 # Remove a previously set value (revert to built-in default)
-meshtastic-cli config-file unset host
-meshtastic-cli config-file unset serial
+mttctl config-file unset host
+mttctl config-file unset serial
 ```
 
 ## Subcommands
@@ -38,7 +38,7 @@ meshtastic-cli config-file unset serial
 
 ## Example Config File
 
-`~/.config/meshtastic-cli/config.toml`:
+`~/.config/mttctl/config.toml`:
 
 ```toml
 host = "192.168.1.100"

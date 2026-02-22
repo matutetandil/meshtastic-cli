@@ -7,7 +7,7 @@ GPS position commands: get, set, and remove.
 Display the current GPS position of the local node.
 
 ```bash
-meshtastic-cli position get
+mttctl position get
 ```
 
 ---
@@ -18,19 +18,19 @@ Set a fixed GPS position on the device. Requires latitude and longitude; altitud
 
 ```bash
 # Set position with latitude and longitude
-meshtastic-cli position set 40.4168 -3.7038
+mttctl position set 40.4168 -3.7038
 
 # Set position with altitude (in meters)
-meshtastic-cli position set 40.4168 -3.7038 650
+mttctl position set 40.4168 -3.7038 650
 
 # Set position with named broadcast flags
-meshtastic-cli position set 40.4168 -3.7038 650 --flags "ALTITUDE,TIMESTAMP,SPEED"
+mttctl position set 40.4168 -3.7038 650 --flags "ALTITUDE,TIMESTAMP,SPEED"
 
 # Set position with numeric bitmask (equivalent to above: 1 + 128 + 512 = 641)
-meshtastic-cli position set 40.4168 -3.7038 650 --flags 641
+mttctl position set 40.4168 -3.7038 650 --flags 641
 
 # Set position with hex bitmask
-meshtastic-cli position set 40.4168 -3.7038 650 --flags 0x281
+mttctl position set 40.4168 -3.7038 650 --flags 0x281
 ```
 
 | Option | Description |
@@ -47,5 +47,5 @@ meshtastic-cli position set 40.4168 -3.7038 650 --flags 0x281
 Remove the fixed GPS position from the device. After removal, the device will return to using live GPS data if a GPS module is available.
 
 ```bash
-meshtastic-cli position remove
+mttctl position remove
 ```

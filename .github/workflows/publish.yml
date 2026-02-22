@@ -43,29 +43,29 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            artifact_name: meshtastic-cli
-            asset_name: meshtastic-cli-linux-x86_64
+            artifact_name: mttctl
+            asset_name: mttctl-linux-x86_64
 
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
-            artifact_name: meshtastic-cli
-            asset_name: meshtastic-cli-linux-aarch64
+            artifact_name: mttctl
+            asset_name: mttctl-linux-aarch64
             cross: true
 
           - target: x86_64-apple-darwin
             os: macos-latest
-            artifact_name: meshtastic-cli
-            asset_name: meshtastic-cli-macos-x86_64
+            artifact_name: mttctl
+            asset_name: mttctl-macos-x86_64
 
           - target: aarch64-apple-darwin
             os: macos-latest
-            artifact_name: meshtastic-cli
-            asset_name: meshtastic-cli-macos-aarch64
+            artifact_name: mttctl
+            asset_name: mttctl-macos-aarch64
 
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            artifact_name: meshtastic-cli.exe
-            asset_name: meshtastic-cli-windows-x86_64.exe
+            artifact_name: mttctl.exe
+            asset_name: mttctl-windows-x86_64.exe
 
     steps:
       - uses: actions/checkout@v4
@@ -113,15 +113,15 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release
-          cp artifacts/meshtastic-cli-linux-x86_64/meshtastic-cli release/meshtastic-cli-linux-x86_64
-          chmod +x release/meshtastic-cli-linux-x86_64
-          cp artifacts/meshtastic-cli-linux-aarch64/meshtastic-cli release/meshtastic-cli-linux-aarch64
-          chmod +x release/meshtastic-cli-linux-aarch64
-          cp artifacts/meshtastic-cli-macos-x86_64/meshtastic-cli release/meshtastic-cli-macos-x86_64
-          chmod +x release/meshtastic-cli-macos-x86_64
-          cp artifacts/meshtastic-cli-macos-aarch64/meshtastic-cli release/meshtastic-cli-macos-aarch64
-          chmod +x release/meshtastic-cli-macos-aarch64
-          cp artifacts/meshtastic-cli-windows-x86_64.exe/meshtastic-cli.exe release/meshtastic-cli-windows-x86_64.exe
+          cp artifacts/mttctl-linux-x86_64/mttctl release/mttctl-linux-x86_64
+          chmod +x release/mttctl-linux-x86_64
+          cp artifacts/mttctl-linux-aarch64/mttctl release/mttctl-linux-aarch64
+          chmod +x release/mttctl-linux-aarch64
+          cp artifacts/mttctl-macos-x86_64/mttctl release/mttctl-macos-x86_64
+          chmod +x release/mttctl-macos-x86_64
+          cp artifacts/mttctl-macos-aarch64/mttctl release/mttctl-macos-aarch64
+          chmod +x release/mttctl-macos-aarch64
+          cp artifacts/mttctl-windows-x86_64.exe/mttctl.exe release/mttctl-windows-x86_64.exe
 
       - name: Create Release
         uses: softprops/action-gh-release@v1

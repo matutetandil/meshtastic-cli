@@ -8,16 +8,16 @@ Reboot the connected device or a remote node.
 
 ```bash
 # Reboot local device (5 second delay)
-meshtastic-cli device reboot
+mttctl device reboot
 
 # Reboot with custom delay
-meshtastic-cli device reboot --delay 10
+mttctl device reboot --delay 10
 
 # Reboot a remote node by ID
-meshtastic-cli device reboot --dest 04e1c43b
+mttctl device reboot --dest 04e1c43b
 
 # Reboot a remote node by name
-meshtastic-cli device reboot --to Pedro
+mttctl device reboot --to Pedro
 ```
 
 | Option | Description |
@@ -34,14 +34,14 @@ Reboot the device into OTA (Over-The-Air) firmware update mode. This is specific
 
 ```bash
 # Reboot local device into OTA mode
-meshtastic-cli device reboot-ota
+mttctl device reboot-ota
 
 # Reboot remote node into OTA mode
-meshtastic-cli device reboot-ota --dest 04e1c43b
-meshtastic-cli device reboot-ota --to Pedro
+mttctl device reboot-ota --dest 04e1c43b
+mttctl device reboot-ota --to Pedro
 
 # Custom delay
-meshtastic-cli device reboot-ota --delay 10
+mttctl device reboot-ota --delay 10
 ```
 
 | Option | Description |
@@ -57,7 +57,7 @@ meshtastic-cli device reboot-ota --delay 10
 Enter Device Firmware Upgrade (DFU) mode. This is specific to NRF52-based Meshtastic hardware (e.g., RAK devices). The device will appear as a USB mass storage device after entering DFU mode, allowing firmware file drops.
 
 ```bash
-meshtastic-cli device enter-dfu
+mttctl device enter-dfu
 ```
 
 ---
@@ -68,13 +68,13 @@ Shut down the connected device or a remote node.
 
 ```bash
 # Shutdown local device
-meshtastic-cli device shutdown
+mttctl device shutdown
 
 # Shutdown with custom delay
-meshtastic-cli device shutdown --delay 10
+mttctl device shutdown --delay 10
 
 # Shutdown a remote node
-meshtastic-cli device shutdown --dest 04e1c43b
+mttctl device shutdown --dest 04e1c43b
 ```
 
 | Option | Description |
@@ -90,7 +90,7 @@ meshtastic-cli device shutdown --dest 04e1c43b
 Restore the device to factory defaults. This erases all configuration and stored data but **preserves BLE bonds**.
 
 ```bash
-meshtastic-cli device factory-reset
+mttctl device factory-reset
 ```
 
 ---
@@ -100,7 +100,7 @@ meshtastic-cli device factory-reset
 Perform a full factory reset that also **wipes all BLE bonds**. Use this when you want to completely reset the device as if it were brand new, including removing all previously paired Bluetooth devices.
 
 ```bash
-meshtastic-cli device factory-reset-device
+mttctl device factory-reset-device
 ```
 
 ---
@@ -110,7 +110,7 @@ meshtastic-cli device factory-reset-device
 Clear the device's entire node database. This removes all known nodes from the local NodeDB.
 
 ```bash
-meshtastic-cli device reset-nodedb
+mttctl device reset-nodedb
 ```
 
 ---
@@ -121,10 +121,10 @@ Set the device clock. Uses the current system time if no timestamp is provided.
 
 ```bash
 # Set time from system clock
-meshtastic-cli device set-time
+mttctl device set-time
 
 # Set time from a specific Unix timestamp
-meshtastic-cli device set-time 1708444800
+mttctl device set-time 1708444800
 ```
 
 | Option | Description |
@@ -138,7 +138,7 @@ meshtastic-cli device set-time 1708444800
 Set the canned messages stored on the device. Messages are separated by `|` and can be selected quickly from a compatible Meshtastic client.
 
 ```bash
-meshtastic-cli device set-canned-message "Yes|No|Help|On my way|Call me"
+mttctl device set-canned-message "Yes|No|Help|On my way|Call me"
 ```
 
 | Option | Description |
@@ -152,10 +152,10 @@ meshtastic-cli device set-canned-message "Yes|No|Help|On my way|Call me"
 Display the canned messages currently configured on the device. Requests the canned message module config from the device and waits for the response.
 
 ```bash
-meshtastic-cli device get-canned-message
+mttctl device get-canned-message
 
 # Custom timeout
-meshtastic-cli device get-canned-message --timeout 60
+mttctl device get-canned-message --timeout 60
 ```
 
 | Option | Description |
@@ -180,7 +180,7 @@ Canned messages:
 Set the notification ringtone on the device. The ringtone is provided in RTTTL (Ring Tone Text Transfer Language) format.
 
 ```bash
-meshtastic-cli device set-ringtone "scale:d=4,o=5,b=120:c,e,g,c6"
+mttctl device set-ringtone "scale:d=4,o=5,b=120:c,e,g,c6"
 ```
 
 | Option | Description |
@@ -194,10 +194,10 @@ meshtastic-cli device set-ringtone "scale:d=4,o=5,b=120:c,e,g,c6"
 Display the notification ringtone currently stored on the device.
 
 ```bash
-meshtastic-cli device get-ringtone
+mttctl device get-ringtone
 
 # Custom timeout
-meshtastic-cli device get-ringtone --timeout 60
+mttctl device get-ringtone --timeout 60
 ```
 
 | Option | Description |

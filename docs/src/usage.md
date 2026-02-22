@@ -3,7 +3,7 @@
 ## CLI Overview
 
 ```
-meshtastic-cli [OPTIONS] <COMMAND>
+mttctl [OPTIONS] <COMMAND>
 
 Options:
   --host <HOST>        TCP host to connect to [default: 127.0.0.1]
@@ -25,10 +25,10 @@ Connects to a Meshtastic device or simulator via TCP. This is the default mode w
 
 ```bash
 # Default: localhost:4403 (ideal for Docker simulator)
-meshtastic-cli nodes
+mttctl nodes
 
 # Custom host and port
-meshtastic-cli --host 192.168.1.100 --port 4403 nodes
+mttctl --host 192.168.1.100 --port 4403 nodes
 ```
 
 ### Serial
@@ -36,7 +36,7 @@ meshtastic-cli --host 192.168.1.100 --port 4403 nodes
 Connect to a physical device over a serial port.
 
 ```bash
-meshtastic-cli --serial /dev/ttyUSB0 nodes
+mttctl --serial /dev/ttyUSB0 nodes
 ```
 
 ### BLE
@@ -45,13 +45,13 @@ Connect to a nearby Meshtastic device via Bluetooth Low Energy. Requires the bin
 
 ```bash
 # Connect by device name
-meshtastic-cli --ble "Meshtastic_abcd" nodes
+mttctl --ble "Meshtastic_abcd" nodes
 
 # Connect by MAC address
-meshtastic-cli --ble "AA:BB:CC:DD:EE:FF" nodes
+mttctl --ble "AA:BB:CC:DD:EE:FF" nodes
 
 # Scan for nearby devices
-meshtastic-cli --ble-scan
+mttctl --ble-scan
 ```
 
 ## Global Flags
@@ -61,7 +61,7 @@ meshtastic-cli --ble-scan
 Skip the initial node discovery phase on startup, which can take several seconds on large meshes. Useful for commands like `send` or `device reboot` that don't need the full node list.
 
 ```bash
-meshtastic-cli --no-nodes send "hello mesh"
+mttctl --no-nodes send "hello mesh"
 ```
 
 ### `--json`
@@ -70,16 +70,16 @@ Output results as a JSON object or array instead of the default formatted text. 
 
 ```bash
 # List nodes as JSON
-meshtastic-cli --json nodes
+mttctl --json nodes
 
 # Get device config as JSON
-meshtastic-cli --json config get lora
+mttctl --json config get lora
 
 # Get local node info as JSON
-meshtastic-cli --json info
+mttctl --json info
 
 # Pipe into jq for filtering
-meshtastic-cli --json nodes | jq '[.[] | select(.battery < 20)]'
+mttctl --json nodes | jq '[.[] | select(.battery < 20)]'
 ```
 
 The flag is a global option and must be placed before the subcommand name. Commands that produce no structured output (e.g., `send`, `device reboot`) ignore the flag.
@@ -96,5 +96,5 @@ docker run -d --name meshtasticd \
   meshtastic/meshtasticd:latest meshtasticd -s
 
 # List nodes
-meshtastic-cli nodes
+mttctl nodes
 ```

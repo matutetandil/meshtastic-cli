@@ -1268,34 +1268,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "meshtastic-cli"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "clap",
- "clap_complete",
- "colored",
- "crossterm",
- "dirs",
- "env_logger",
- "image",
- "log",
- "meshtastic",
- "qrcode",
- "rumqttc",
- "rustyline",
- "serde",
- "serde_json",
- "serde_yaml",
- "shlex",
- "thiserror 2.0.18",
- "tokio",
- "toml",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1338,6 +1310,34 @@ checksum = "ac9557c559cd6fc9867e122e20d2cbefc9ca29d80d027a8e39310920ed2f0a97"
 dependencies = [
  "num-traits",
  "pxfm",
+]
+
+[[package]]
+name = "mttctl"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "colored",
+ "crossterm",
+ "dirs",
+ "env_logger",
+ "image",
+ "log",
+ "meshtastic",
+ "qrcode",
+ "rumqttc",
+ "rustyline",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "shlex",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml",
 ]
 
 [[package]]

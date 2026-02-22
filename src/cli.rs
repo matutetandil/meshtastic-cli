@@ -1,7 +1,7 @@
 use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
-#[command(name = "meshtastic-cli")]
+#[command(name = "mttctl")]
 #[command(about = "CLI tool for interacting with Meshtastic mesh networking devices")]
 #[command(version)]
 pub struct Cli {
@@ -143,7 +143,7 @@ pub enum Commands {
     /// Interactive REPL shell with command history and tab completion
     Shell,
 
-    /// Manage persistent CLI configuration file (~/.config/meshtastic-cli/config.toml)
+    /// Manage persistent CLI configuration file (~/.config/mttctl/config.toml)
     ConfigFile {
         #[command(subcommand)]
         action: ConfigFileAction,
@@ -686,12 +686,7 @@ pub enum GpioAction {
 
 impl Cli {
     pub fn generate_completions(shell: clap_complete::Shell) {
-        clap_complete::generate(
-            shell,
-            &mut Cli::command(),
-            "meshtastic-cli",
-            &mut std::io::stdout(),
-        );
+        clap_complete::generate(shell, &mut Cli::command(), "mttctl", &mut std::io::stdout());
     }
 }
 

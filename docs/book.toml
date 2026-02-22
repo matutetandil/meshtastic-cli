@@ -2,8 +2,8 @@
 authors = ["matutetandil"]
 language = "en"
 src = "src"
-title = "meshtastic-cli"
+title = "mttctl"
 
 [output.html]
-git-repository-url = "https://github.com/matutetandil/meshtastic-cli"
+git-repository-url = "https://github.com/matutetandil/mttctl"
 default-theme = "navy"

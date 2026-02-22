@@ -4,15 +4,15 @@ Interactive REPL (Read-Eval-Print Loop) for exploratory and interactive use. The
 
 ```bash
 # Start an interactive shell (connects to default TCP host)
-meshtastic-cli shell
+mttctl shell
 
 # Start an interactive shell connected to a serial device
-meshtastic-cli --serial /dev/ttyUSB0 shell
+mttctl --serial /dev/ttyUSB0 shell
 ```
 
 ## Features
 
-- Command history persisted to `~/.local/share/meshtastic-cli/history` across sessions
+- Command history persisted to `~/.local/share/mttctl/history` across sessions
 - Tab completion for all commands, subcommands, and flags (powered by `rustyline`)
 - Single device connection reused for the entire session
 - `help` prints available commands
@@ -21,18 +21,18 @@ meshtastic-cli --serial /dev/ttyUSB0 shell
 ## Example Session
 
 ```
-meshtastic-cli> nodes
+mttctl> nodes
   ID          Name    Battery  SNR    Hops  Last Heard
   !04e1c43b   Pedro   85%      8.5    0     just now
   !a1b2c3d4   Maria   72%      6.0    1     2m ago
 
-meshtastic-cli> send "hello from shell"
+mttctl> send "hello from shell"
 ok Message sent.
 
-meshtastic-cli> ping --to Maria
+mttctl> ping --to Maria
 -> Pinging !a1b2c3d4 (Maria) (packet id: 7f3a1b2c)...
 ok ACK from !a1b2c3d4 (Maria) in 1.8s
 
-meshtastic-cli> exit
+mttctl> exit
 Goodbye.
 ```

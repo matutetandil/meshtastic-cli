@@ -7,25 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed project from `meshtastic-cli` to `mttctl` for Meshtastic trademark compliance
+- Binary name changed from `meshtastic-cli` to `mttctl`
+- Config directory moved from `~/.config/meshtastic-cli/` to `~/.config/mttctl/` (automatic migration on first run)
+- MQTT client ID prefix changed from `meshtastic-cli-` to `mttctl-`
+- All GitHub URLs updated to `matutetandil/mttctl`
+- `cargo install mttctl` replaces `cargo install meshtastic-cli`
+
 ## [0.4.0] - 2026-02-22
 
 ### Added
 
-- Full documentation site built with mdBook, deployed to GitHub Pages at `https://matutetandil.github.io/meshtastic-cli`
+- Full documentation site built with mdBook, deployed to GitHub Pages at `https://matutetandil.github.io/mttctl`
 - Documentation pages for all commands organized by category: messaging, network, config, channel, device, node, position, request, GPIO, waypoint, watch, MQTT bridge, shell, completions, and config-file
 - Architecture, development, installation, usage, and contributing guides
 - GitHub Actions workflow for automatic documentation deployment on push to `main`
 - `--json` global flag to emit structured JSON output on all data-returning commands: `nodes`, `info`, `support`, `ping`, `send`, `traceroute`, `position get`, `channel list`, `channel qr`, `config get`, `listen`, `reply`, `gpio read`, `gpio watch`, `request telemetry`, `request position`, and `request metadata`
 - `completions` command to generate shell completion scripts for bash, zsh, fish, PowerShell, and Elvish; writes to stdout for easy integration with shell startup files
-- `config-file` command for managing persistent CLI configuration stored at `~/.config/meshtastic-cli/config.toml`, with four subcommands: `show` (display current config), `set` (write a key/value pair), `unset` (remove a key), and `path` (print the config file location)
-- Persistent CLI config file support: values for `host`, `port`, `serial`, `ble`, and `json` are read from `~/.config/meshtastic-cli/config.toml` at startup and merged with command-line flags; CLI flags always take precedence over config file values
+- `config-file` command for managing persistent CLI configuration stored at `~/.config/mttctl/config.toml`, with four subcommands: `show` (display current config), `set` (write a key/value pair), `unset` (remove a key), and `path` (print the config file location)
+- Persistent CLI config file support: values for `host`, `port`, `serial`, `ble`, and `json` are read from `~/.config/mttctl/config.toml` at startup and merged with command-line flags; CLI flags always take precedence over config file values
 - `waypoint send` command to create and broadcast a waypoint to the mesh, with options for `--name`, `--description`, `--icon` (emoji or Unicode codepoint), `--expire` (Unix timestamp or relative duration), and `--locked` (restrict edits to the sending node)
 - `waypoint delete` command to remove an existing waypoint by its numeric ID
 - `waypoint list` command to listen for incoming `WAYPOINT_APP` packets and display received waypoints, with a configurable `--timeout`
 - `watch` command for a live-updating node table that clears and redraws the terminal at a configurable `--interval` (default 5 s), showing the same columns as `nodes` with automatic refresh until interrupted
 - `listen --log <file>` flag to write every received packet as a JSON Lines record to a file alongside the existing terminal output, enabling offline analysis without interrupting the live display
 - `mqtt bridge` command for bidirectional mesh-to-MQTT bridging: publishes decoded packets to `{prefix}/messages`, `{prefix}/telemetry/{node}`, and `{prefix}/position/{node}` topics, and subscribes to `{prefix}/send` to forward MQTT messages back into the mesh; supports `--broker`, `--port`, `--prefix`, `--username`, and `--password` options
-- `shell` command for an interactive REPL that accepts the same subcommands as the top-level CLI; features persistent command history saved at `~/.config/meshtastic-cli/history.txt`, tab completion for command names and subcommands, and a colored prompt displaying the current connection target
+- `shell` command for an interactive REPL that accepts the same subcommands as the top-level CLI; features persistent command history saved at `~/.config/mttctl/history.txt`, tab completion for command names and subcommands, and a colored prompt displaying the current connection target
 
 ### Changed
 
@@ -169,8 +178,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `error.rs` module with project-wide error types
 - `commands/` module directory with one file per command following single-responsibility principles
 
-[Unreleased]: https://github.com/matutetandil/meshtastic-cli/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/matutetandil/meshtastic-cli/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/matutetandil/meshtastic-cli/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/matutetandil/meshtastic-cli/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/matutetandil/meshtastic-cli/releases/tag/v0.1.0
+[Unreleased]: https://github.com/matutetandil/mttctl/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/matutetandil/mttctl/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/matutetandil/mttctl/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/matutetandil/mttctl/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/matutetandil/mttctl/releases/tag/v0.1.0

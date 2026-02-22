@@ -23,7 +23,7 @@ pub struct MqttBridgeCommand {
 #[async_trait]
 impl Command for MqttBridgeCommand {
     async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()> {
-        let client_id = format!("meshtastic-cli-{}", rand_u16());
+        let client_id = format!("mttctl-{}", rand_u16());
 
         let mut mqtt_opts = MqttOptions::new(&client_id, &self.broker, self.port);
         mqtt_opts.set_keep_alive(Duration::from_secs(30));
