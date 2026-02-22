@@ -70,7 +70,7 @@ impl Command for PositionRemoveCommand {
 
         println!("{} Removing fixed position...", "->".cyan());
 
-        super::device::send_admin_message(
+        super::admin::send_admin_message(
             ctx,
             my_id,
             admin_message::PayloadVariant::RemoveFixedPosition(true),
@@ -195,7 +195,7 @@ impl Command for PositionSetCommand {
         };
 
         let my_id = ctx.node_db.my_node_num();
-        super::device::send_admin_message(
+        super::admin::send_admin_message(
             ctx,
             my_id,
             admin_message::PayloadVariant::SetFixedPosition(position),

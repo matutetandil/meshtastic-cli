@@ -1,5 +1,8 @@
+mod admin;
 mod channel;
 mod config;
+mod config_file_cmd;
+mod destination;
 mod device;
 mod export_import;
 mod gpio;
@@ -8,6 +11,7 @@ mod listen;
 mod mqtt_bridge;
 mod node;
 mod nodes;
+pub(crate) mod parsers;
 mod ping;
 mod position;
 mod reply;
@@ -19,20 +23,21 @@ mod traceroute;
 mod watch;
 mod waypoint;
 
-use anyhow::bail;
 use async_trait::async_trait;
-use colored::Colorize;
 use meshtastic::api::ConnectedStreamApi;
-use meshtastic::packet::{PacketDestination, PacketReceiver};
-use meshtastic::types::{MeshChannel, NodeId};
+use meshtastic::packet::PacketReceiver;
+use meshtastic::types::MeshChannel;
 
 use crate::cli::{
-    ChannelAction, Commands, ConfigAction, DeviceAction, GpioAction, ModemPresetArg, MqttAction,
-    NodeAction, PositionAction, RequestAction, TelemetryTypeArg, WaypointAction,
+    ChannelAction, Commands, ConfigAction, DeviceAction, GpioAction, MqttAction, NodeAction,
+    PositionAction, RequestAction, WaypointAction,
 };
 use crate::error::CliError;
 use crate::node_db::NodeDb;
 use crate::router::MeshRouter;
+
+pub use config_file_cmd::handle_config_file;
+pub use destination::{parse_dest_spec, resolve_destination, DestinationSpec};
 
 #[allow(dead_code)]
 pub struct CommandContext {
@@ -46,89 +51,6 @@ pub struct CommandContext {
 #[async_trait]
 pub trait Command {
     async fn execute(&self, ctx: &mut CommandContext) -> anyhow::Result<()>;
-}
-
-pub enum DestinationSpec {
-    Broadcast,
-    NodeId(u32),
-    NodeName(String),
-}
-
-pub fn resolve_destination(
-    spec: &DestinationSpec,
-    node_db: &NodeDb,
-) -> anyhow::Result<(PacketDestination, String)> {
-    match spec {
-        DestinationSpec::Broadcast => Ok((PacketDestination::Broadcast, "broadcast".to_string())),
-        DestinationSpec::NodeId(id) => Ok((
-            PacketDestination::Node(NodeId::new(*id)),
-            format!("!{:08x}", id),
-        )),
-        DestinationSpec::NodeName(name) => {
-            let matches = node_db.find_by_name(name);
-
-            match matches.len() {
-                0 => bail!(
-                    "No node found with name '{}'. Use 'nodes' command to list known nodes.",
-                    name
-                ),
-                1 => {
-                    let (num, node) = &matches[0];
-                    let node_name = node
-                        .user
-                        .as_ref()
-                        .map(|u| u.long_name.as_str())
-                        .unwrap_or("Unknown");
-                    println!(
-                        "{} Resolved '{}' to !{:08x} ({})",
-                        "→".cyan(),
-                        name,
-                        num,
-                        node_name
-                    );
-                    Ok((
-                        PacketDestination::Node(NodeId::new(*num)),
-                        format!("{} (!{:08x})", node_name, num),
-                    ))
-                }
-                _ => {
-                    let mut msg = format!(
-                        "Multiple nodes found with name '{}'. Use --dest with the node ID:\n",
-                        name
-                    );
-                    for (num, node) in &matches {
-                        let node_name = node
-                            .user
-                            .as_ref()
-                            .map(|u| u.long_name.as_str())
-                            .unwrap_or("Unknown");
-                        msg.push_str(&format!("  !{:08x}  {}\n", num, node_name));
-                    }
-                    bail!("{}", msg.trim_end())
-                }
-            }
-        }
-    }
-}
-
-fn parse_dest_spec(
-    dest: &Option<String>,
-    to: &Option<String>,
-) -> Result<DestinationSpec, CliError> {
-    match (dest, to) {
-        (Some(hex_str), None) => {
-            let stripped = hex_str.strip_prefix('!').unwrap_or(hex_str);
-            let node_num = u32::from_str_radix(stripped, 16).map_err(|_| {
-                CliError::InvalidArgument(format!(
-                    "Invalid node ID '{}'. Expected hex format like !abcd1234",
-                    hex_str
-                ))
-            })?;
-            Ok(DestinationSpec::NodeId(node_num))
-        }
-        (None, Some(name)) => Ok(DestinationSpec::NodeName(name.clone())),
-        _ => Ok(DestinationSpec::Broadcast),
-    }
 }
 
 pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, CliError> {
@@ -304,19 +226,10 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
                 r#type,
             } => {
                 let destination = parse_dest_spec(dest, to)?;
-                let telem_type = match r#type {
-                    TelemetryTypeArg::Device => request::TelemetryType::Device,
-                    TelemetryTypeArg::Environment => request::TelemetryType::Environment,
-                    TelemetryTypeArg::AirQuality => request::TelemetryType::AirQuality,
-                    TelemetryTypeArg::Power => request::TelemetryType::Power,
-                    TelemetryTypeArg::LocalStats => request::TelemetryType::LocalStats,
-                    TelemetryTypeArg::Health => request::TelemetryType::Health,
-                    TelemetryTypeArg::Host => request::TelemetryType::Host,
-                };
                 Ok(Box::new(request::RequestTelemetryCommand {
                     destination,
                     timeout_secs: *timeout,
-                    telemetry_type: telem_type,
+                    telemetry_type: r#type.into(),
                 }))
             }
             RequestAction::Position { dest, to, timeout } => {
@@ -432,19 +345,8 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
             ConfigAction::BeginEdit => Ok(Box::new(config::BeginEditCommand)),
             ConfigAction::CommitEdit => Ok(Box::new(config::CommitEditCommand)),
             ConfigAction::SetModemPreset { preset } => {
-                let preset_i32 = match preset {
-                    ModemPresetArg::LongFast => 0,
-                    ModemPresetArg::LongSlow => 1,
-                    ModemPresetArg::VeryLongSlow => 2,
-                    ModemPresetArg::MediumSlow => 3,
-                    ModemPresetArg::MediumFast => 4,
-                    ModemPresetArg::ShortSlow => 5,
-                    ModemPresetArg::ShortFast => 6,
-                    ModemPresetArg::LongModerate => 7,
-                    ModemPresetArg::ShortTurbo => 8,
-                };
                 Ok(Box::new(config::SetModemPresetCommand {
-                    preset: preset_i32,
+                    preset: preset.into(),
                 }))
             }
             ConfigAction::ChAddUrl { url } => {
@@ -499,8 +401,9 @@ pub fn create_command(command: &Commands) -> Result<Box<dyn Command + Send>, Cli
             })),
         },
         Commands::Completions { .. } | Commands::ConfigFile { .. } => {
-            // Handled in main.rs before connection is established
-            unreachable!("This command should be handled before create_command")
+            Err(CliError::InvalidArgument(
+                "This command should be handled before create_command is called".into(),
+            ))
         }
     }
 }

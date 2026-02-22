@@ -708,6 +708,22 @@ pub enum ModemPresetArg {
     ShortTurbo,
 }
 
+impl From<&ModemPresetArg> for i32 {
+    fn from(preset: &ModemPresetArg) -> Self {
+        match preset {
+            ModemPresetArg::LongFast => 0,
+            ModemPresetArg::LongSlow => 1,
+            ModemPresetArg::VeryLongSlow => 2,
+            ModemPresetArg::MediumSlow => 3,
+            ModemPresetArg::MediumFast => 4,
+            ModemPresetArg::ShortSlow => 5,
+            ModemPresetArg::ShortFast => 6,
+            ModemPresetArg::LongModerate => 7,
+            ModemPresetArg::ShortTurbo => 8,
+        }
+    }
+}
+
 #[derive(Debug, Clone, ValueEnum)]
 pub enum TelemetryTypeArg {
     Device,

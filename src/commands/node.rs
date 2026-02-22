@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use colored::Colorize;
 use meshtastic::protobufs::{self, admin_message};
 
-use super::device::send_admin_message;
+use super::admin::send_admin_message;
 use super::{resolve_destination, Command, CommandContext, DestinationSpec};
 
 // ── SetOwnerCommand ───────────────────────────────────────────────

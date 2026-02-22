@@ -10,6 +10,7 @@ use qrcode::render::svg;
 use qrcode::QrCode;
 use serde::Serialize;
 
+use super::parsers::parse_bool;
 use super::{Command, CommandContext};
 
 #[derive(Serialize)]
@@ -459,7 +460,7 @@ fn render_terminal_qr(code: &QrCode) {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-pub(super) fn find_next_free_index(channels: &[protobufs::Channel]) -> anyhow::Result<i32> {
+pub fn find_next_free_index(channels: &[protobufs::Channel]) -> anyhow::Result<i32> {
     for i in 1..=7 {
         let is_used = channels
             .iter()
@@ -512,17 +513,6 @@ fn hex_decode(hex: &str) -> anyhow::Result<Vec<u8>> {
 fn rand_byte() -> u8 {
     let id: u32 = meshtastic::utils::generate_rand_id();
     (id & 0xFF) as u8
-}
-
-fn parse_bool(value: &str) -> anyhow::Result<bool> {
-    match value.to_lowercase().as_str() {
-        "true" | "1" | "yes" | "on" => Ok(true),
-        "false" | "0" | "no" | "off" => Ok(false),
-        _ => bail!(
-            "Invalid boolean '{}'. Use true/false, 1/0, yes/no, or on/off.",
-            value
-        ),
-    }
 }
 
 fn print_channel(ch: &protobufs::Channel) {

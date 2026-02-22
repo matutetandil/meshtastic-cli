@@ -28,6 +28,21 @@ pub enum TelemetryType {
     Host,
 }
 
+impl From<&crate::cli::TelemetryTypeArg> for TelemetryType {
+    fn from(arg: &crate::cli::TelemetryTypeArg) -> Self {
+        use crate::cli::TelemetryTypeArg;
+        match arg {
+            TelemetryTypeArg::Device => TelemetryType::Device,
+            TelemetryTypeArg::Environment => TelemetryType::Environment,
+            TelemetryTypeArg::AirQuality => TelemetryType::AirQuality,
+            TelemetryTypeArg::Power => TelemetryType::Power,
+            TelemetryTypeArg::LocalStats => TelemetryType::LocalStats,
+            TelemetryTypeArg::Health => TelemetryType::Health,
+            TelemetryTypeArg::Host => TelemetryType::Host,
+        }
+    }
+}
+
 // ── RequestTelemetryCommand ───────────────────────────────────────
 
 pub struct RequestTelemetryCommand {
