@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Separated startup protocol from `NodeDb` into dedicated `node_db_builder` module; `NodeDb` is now a pure data container with constructor
 - Shell command names and help descriptions derived dynamically from Clap metadata instead of hard-coded list
 - Moved `json` flag from `CommandContext` to individual command structs, decoupling presentation concerns from execution context
+- Consolidated base64 encode/decode and URL payload extraction utilities into shared `parsers` module, removing duplication between channel and config modules
+- Moved `find_next_free_channel_index` from channel module to shared `parsers` module, eliminating cross-module visibility leak
 
 ### Dependencies Added
 

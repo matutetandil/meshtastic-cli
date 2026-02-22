@@ -76,6 +76,107 @@ pub fn hex_decode(hex: &str) -> anyhow::Result<Vec<u8>> {
         .collect()
 }
 
+pub fn base64_url_encode(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+    let mut result = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    let chunks = bytes.chunks(3);
+
+    for chunk in chunks {
+        let b0 = chunk[0] as u32;
+        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
+        let n = (b0 << 16) | (b1 << 8) | b2;
+
+        result.push(TABLE[((n >> 18) & 0x3F) as usize] as char);
+        result.push(TABLE[((n >> 12) & 0x3F) as usize] as char);
+
+        if chunk.len() > 1 {
+            result.push(TABLE[((n >> 6) & 0x3F) as usize] as char);
+        }
+        if chunk.len() > 2 {
+            result.push(TABLE[(n & 0x3F) as usize] as char);
+        }
+    }
+
+    result
+}
+
+pub fn base64_url_decode(input: &str) -> anyhow::Result<Vec<u8>> {
+    let input = input.replace('-', "+").replace('_', "/");
+
+    let padded = match input.len() % 4 {
+        2 => format!("{}==", input),
+        3 => format!("{}=", input),
+        _ => input,
+    };
+
+    let mut result = Vec::new();
+    let chars: Vec<u8> = padded.bytes().collect();
+
+    for chunk in chars.chunks(4) {
+        if chunk.len() < 4 {
+            break;
+        }
+
+        let a = b64_val(chunk[0])?;
+        let b = b64_val(chunk[1])?;
+        let c = b64_val(chunk[2])?;
+        let d = b64_val(chunk[3])?;
+
+        result.push((a << 2) | (b >> 4));
+        if chunk[2] != b'=' {
+            result.push(((b & 0x0F) << 4) | (c >> 2));
+        }
+        if chunk[3] != b'=' {
+            result.push(((c & 0x03) << 6) | d);
+        }
+    }
+
+    Ok(result)
+}
+
+fn b64_val(c: u8) -> anyhow::Result<u8> {
+    match c {
+        b'A'..=b'Z' => Ok(c - b'A'),
+        b'a'..=b'z' => Ok(c - b'a' + 26),
+        b'0'..=b'9' => Ok(c - b'0' + 52),
+        b'+' => Ok(62),
+        b'/' => Ok(63),
+        b'=' => Ok(0),
+        _ => bail!("Invalid base64 character: {}", c as char),
+    }
+}
+
+pub fn extract_meshtastic_url_payload(url: &str) -> anyhow::Result<String> {
+    if let Some(payload) = url.strip_prefix("https://meshtastic.org/e/#") {
+        Ok(payload.to_string())
+    } else if let Some(payload) = url.strip_prefix("http://meshtastic.org/e/#") {
+        Ok(payload.to_string())
+    } else if let Some(payload) = url.strip_prefix("meshtastic://") {
+        Ok(payload.to_string())
+    } else if let Some(payload) = url.strip_prefix('#') {
+        Ok(payload.to_string())
+    } else {
+        Ok(url.to_string())
+    }
+}
+
+pub fn find_next_free_channel_index(
+    channels: &[meshtastic::protobufs::Channel],
+) -> anyhow::Result<i32> {
+    use meshtastic::protobufs::channel;
+    for i in 1..=7 {
+        let is_used = channels
+            .iter()
+            .any(|c| c.index == i && c.role != channel::Role::Disabled as i32);
+        if !is_used {
+            return Ok(i);
+        }
+    }
+    bail!("No free channel slots available (max 8 channels, indices 0-7)")
+}
+
 pub fn parse_enum_i32(value: &str, variants: &[(&str, i32)]) -> anyhow::Result<i32> {
     let upper = value.to_uppercase();
     for (name, val) in variants {

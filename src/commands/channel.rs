@@ -114,7 +114,7 @@ impl Command for ChannelAddCommand {
         }
 
         let channels = ctx.node_db.channels();
-        let next_index = find_next_free_index(channels)?;
+        let next_index = super::parsers::find_next_free_channel_index(channels)?;
 
         let psk = parse_psk(&self.psk)?;
 
@@ -331,7 +331,7 @@ impl Command for ChannelQrCommand {
                         lora_config: lora_config.clone(),
                     };
                     let encoded = channel_set.encode_to_vec();
-                    let b64 = base64_url_encode(&encoded);
+                    let b64 = super::parsers::base64_url_encode(&encoded);
                     let url = format!("https://meshtastic.org/e/#{}", b64);
                     results.push(ChannelQrJson {
                         channel_name: Some(name),
@@ -359,7 +359,7 @@ impl Command for ChannelQrCommand {
                 };
 
                 let encoded = channel_set.encode_to_vec();
-                let b64 = base64_url_encode(&encoded);
+                let b64 = super::parsers::base64_url_encode(&encoded);
                 let url = format!("https://meshtastic.org/e/#{}", b64);
 
                 println!("{} {} (index {})", "Channel:".bold(), name.bold(), ch.index);
@@ -381,7 +381,7 @@ impl Command for ChannelQrCommand {
             };
 
             let encoded = channel_set.encode_to_vec();
-            let b64 = base64_url_encode(&encoded);
+            let b64 = super::parsers::base64_url_encode(&encoded);
             let url = format!("https://meshtastic.org/e/#{}", b64);
 
             if self.json {
@@ -463,18 +463,6 @@ fn render_terminal_qr(code: &QrCode) {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-pub fn find_next_free_index(channels: &[protobufs::Channel]) -> anyhow::Result<i32> {
-    for i in 1..=7 {
-        let is_used = channels
-            .iter()
-            .any(|c| c.index == i && c.role != channel::Role::Disabled as i32);
-        if !is_used {
-            return Ok(i);
-        }
-    }
-    bail!("No free channel slots available (max 8 channels, indices 0-7)")
-}
-
 fn parse_psk(value: &str) -> anyhow::Result<Vec<u8>> {
     match value.to_lowercase().as_str() {
         "none" => Ok(vec![]),
@@ -542,32 +530,6 @@ fn print_channel(ch: &protobufs::Channel) {
         uplink,
         downlink
     );
-}
-
-fn base64_url_encode(bytes: &[u8]) -> String {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
-    let mut result = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    let chunks = bytes.chunks(3);
-
-    for chunk in chunks {
-        let b0 = chunk[0] as u32;
-        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
-        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
-        let n = (b0 << 16) | (b1 << 8) | b2;
-
-        result.push(TABLE[((n >> 18) & 0x3F) as usize] as char);
-        result.push(TABLE[((n >> 12) & 0x3F) as usize] as char);
-
-        if chunk.len() > 1 {
-            result.push(TABLE[((n >> 6) & 0x3F) as usize] as char);
-        }
-        if chunk.len() > 2 {
-            result.push(TABLE[(n & 0x3F) as usize] as char);
-        }
-    }
-
-    result
 }
 
 fn format_psk(psk: &[u8]) -> String {
