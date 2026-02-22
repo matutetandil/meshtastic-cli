@@ -1,12 +1,13 @@
 [package]
 name = "meshtastic-cli"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "A CLI tool for interacting with Meshtastic mesh networking devices"
 license = "MIT"
 authors = ["matutetandil"]
 repository = "https://github.com/matutetandil/meshtastic-cli"
-homepage = "https://github.com/matutetandil/meshtastic-cli"
+homepage = "https://matutetandil.github.io/meshtastic-cli"
+documentation = "https://matutetandil.github.io/meshtastic-cli"
 readme = "README.md"
 keywords = ["meshtastic", "mesh", "lora", "cli", "iot"]
 categories = ["command-line-utilities", "network-programming"]

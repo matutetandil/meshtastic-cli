@@ -28,7 +28,7 @@ That's it — connect, see your mesh, send a message.
 
 ---
 
-## Features (v0.3.0)
+## Features (v0.4.0)
 
 | Category | Highlights |
 |---|---|
@@ -165,7 +165,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## Project Status
 
-**Current Version**: 0.3.0
+**Current Version**: 0.4.0
 **Development Status**: Active development
 **Stability**: Experimental — API and CLI interface may change
 
