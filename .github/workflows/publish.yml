@@ -85,9 +85,9 @@ jobs:
         if: ${{ !matrix.cross }}
         run: cargo build --release --features ble --target ${{ matrix.target }}
 
-      - name: Build (cross)
+      - name: Build (cross, no BLE — dbus unavailable for cross-compilation)
         if: matrix.cross
-        run: cross build --release --features ble --target ${{ matrix.target }}
+        run: cross build --release --target ${{ matrix.target }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
