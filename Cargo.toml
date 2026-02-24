@@ -1,9 +1,9 @@
 [package]
 name = "mttctl"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "A CLI tool for interacting with Meshtastic mesh networking devices"
-license = "MIT"
+license = "GPL-3.0-only"
 authors = ["matutetandil"]
 repository = "https://github.com/matutetandil/mttctl"
 homepage = "https://matutetandil.github.io/mttctl"

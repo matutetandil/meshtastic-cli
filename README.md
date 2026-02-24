@@ -28,7 +28,7 @@ That's it — connect, see your mesh, send a message.
 
 ---
 
-## Features (v0.4.0)
+## Features (v0.4.1)
 
 | Category | Highlights |
 |---|---|
@@ -159,13 +159,13 @@ Contributions are welcome. Please ensure `cargo clippy -- -D warnings` and `carg
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for details.
 
 ---
 
 ## Project Status
 
-**Current Version**: 0.4.0
+**Current Version**: 0.4.1
 **Development Status**: Active development
 **Stability**: Experimental — API and CLI interface may change
 

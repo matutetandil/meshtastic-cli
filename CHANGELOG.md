@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-02-24
+
 ### Changed
 
+- License changed from MIT to GPL-3.0-only for compatibility with the `meshtastic` crate (GPL-3.0)
 - Renamed project from `meshtastic-cli` to `mttctl` for Meshtastic trademark compliance
 - Binary name changed from `meshtastic-cli` to `mttctl`
 - Config directory moved from `~/.config/meshtastic-cli/` to `~/.config/mttctl/` (automatic migration on first run)
@@ -178,7 +181,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `error.rs` module with project-wide error types
 - `commands/` module directory with one file per command following single-responsibility principles
 
-[Unreleased]: https://github.com/matutetandil/mttctl/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/matutetandil/mttctl/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/matutetandil/mttctl/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/matutetandil/mttctl/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/matutetandil/mttctl/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/matutetandil/mttctl/compare/v0.1.0...v0.2.0
